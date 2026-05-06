@@ -1,0 +1,1696 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SportCal</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #f8fafc;
+  --surface:  #ffffff;
+  --surface2: #f1f5f9;
+  --border:   #e2e8f0;
+  --text:     #0f172a;
+  --muted:    #64748b;
+  --accent:   #6366f1;
+  --accent-h: #4f46e5;
+  --run:      #22c55e;
+  --bike:     #f97316;
+  --swim:     #06b6d4;
+  --green:    #22c55e;
+  --amber:    #f59e0b;
+  --red:      #ef4444;
+  --today-bg: #eff6ff;
+  --sel-bg:   #ede9fe;
+  --radius:   10px;
+  --shadow:   0 1px 4px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,.10), 0 1px 4px rgba(0,0,0,.06);
+}
+
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+       font-size: 13px; background: var(--bg); color: var(--text);
+       height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Auth overlay ── */
+#auth-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+#auth-overlay.hidden { display: none; }
+
+#auth-box {
+  background: var(--surface); border-radius: 20px; width: 420px;
+  box-shadow: 0 32px 80px rgba(0,0,0,.35);
+  overflow: hidden;
+}
+
+.auth-logo {
+  background: linear-gradient(135deg, #312e81, #4338ca);
+  padding: 28px 32px 24px;
+  display: flex; align-items: center; gap: 12px;
+}
+.auth-logo-badge {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: rgba(255,255,255,.2); border: 2px solid rgba(255,255,255,.35);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 900; color: #fff;
+}
+.auth-logo-text { font-size: 22px; font-weight: 900; color: #fff;
+                  letter-spacing: 1px; text-transform: uppercase; }
+.auth-logo-sub  { font-size: 12px; color: rgba(255,255,255,.65); margin-top: 2px; }
+
+.auth-tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.auth-tab {
+  flex: 1; height: 44px; border: none; background: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--muted);
+  border-bottom: 2px solid transparent; transition: .15s;
+}
+.auth-tab.active { color: var(--accent); border-bottom-color: var(--accent);
+                   background: var(--surface); }
+
+.auth-body { padding: 24px 28px 28px; display: flex; flex-direction: column; gap: 14px; }
+
+.auth-field { display: flex; flex-direction: column; gap: 5px; }
+.auth-field label { font-size: 10px; font-weight: 800; color: var(--muted);
+                    text-transform: uppercase; letter-spacing: 0.8px; }
+.auth-field input {
+  height: 40px; padding: 0 12px; border: 1.5px solid var(--border);
+  border-radius: 10px; font-size: 14px; background: var(--surface2);
+  color: var(--text); outline: none; transition: border-color .15s;
+}
+.auth-field input:focus { border-color: var(--accent); background: #fff; }
+
+/* Role cards */
+.role-cards { display: flex; gap: 10px; }
+.role-card {
+  flex: 1; border: 2px solid var(--border); border-radius: 12px;
+  padding: 12px 10px; cursor: pointer; transition: .15s;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  background: var(--surface2);
+}
+.role-card:hover { border-color: #a5b4fc; background: #fff; }
+.role-card.selected { border-color: var(--accent); background: var(--sel-bg); }
+.role-card input[type=radio] { display: none; }
+.role-card-icon { font-size: 26px; }
+.role-card-label { font-size: 12px; font-weight: 700; color: var(--text); }
+.role-card-desc  { font-size: 10px; color: var(--muted); text-align: center; }
+
+.auth-btn {
+  height: 44px; border: none; border-radius: 10px; cursor: pointer;
+  font-size: 14px; font-weight: 700; letter-spacing: 0.3px;
+  background: linear-gradient(135deg, var(--accent), #818cf8); color: #fff;
+  transition: opacity .15s;
+}
+.auth-btn:hover { opacity: .9; }
+.auth-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.auth-error {
+  background: #fee2e2; border: 1px solid #fca5a5; border-radius: 8px;
+  padding: 8px 12px; font-size: 12px; color: #b91c1c; display: none;
+}
+.auth-error.show { display: block; }
+
+/* ── Sport gradient top bar ── */
+#sport-bar {
+  height: 3px; flex-shrink: 0;
+  background: linear-gradient(to right, var(--run), var(--accent), var(--swim), var(--bike));
+}
+
+/* ── Header ── */
+#header { background: var(--surface); border-bottom: 1px solid var(--border);
+          height: 52px; display: flex; align-items: center;
+          padding: 0 20px; gap: 10px; flex-shrink: 0;
+          box-shadow: 0 1px 0 var(--border); }
+
+.logo-wrap { display: flex; align-items: center; gap: 8px; margin-right: 10px; user-select: none; }
+.logo-badge {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: linear-gradient(135deg, var(--accent), #818cf8);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 900; color: #fff; letter-spacing: -0.5px;
+}
+.logo-text { font-size: 15px; font-weight: 800; color: var(--text);
+             letter-spacing: 0.5px; text-transform: uppercase; }
+
+.nav-tabs { display: flex; gap: 2px; }
+.tab-btn {
+  background: none; border: none; padding: 7px 14px;
+  border-radius: 0; font-size: 13px; cursor: pointer; color: var(--muted);
+  transition: color .15s; position: relative; font-weight: 500;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+.tab-btn:hover:not(.active) { color: var(--text); background: none; }
+
+.spacer { flex: 1; }
+
+.sel-wrap {
+  position: relative; display: flex; align-items: center;
+  height: 34px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0 10px 0 8px; gap: 6px; cursor: pointer;
+  transition: border-color .15s;
+}
+.sel-wrap:focus-within { border-color: var(--accent); }
+.sel-wrap .sel-icon { font-size: 14px; flex-shrink: 0; }
+.sel-wrap select {
+  border: none; background: transparent; outline: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--text);
+  appearance: none; -webkit-appearance: none;
+  padding-right: 18px; min-width: 80px;
+}
+.sel-wrap::after {
+  content: '▾'; position: absolute; right: 8px; font-size: 10px;
+  color: var(--muted); pointer-events: none;
+}
+
+.role-pill {
+  height: 26px; padding: 0 10px; border-radius: 20px; font-size: 11px;
+  font-weight: 700; display: flex; align-items: center; gap: 4px;
+  text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0;
+}
+.role-pill.coach   { background: #ede9fe; color: var(--accent); }
+.role-pill.athlete { background: #dcfce7; color: #16a34a; }
+
+/* User info area */
+#user-info {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 10px; height: 34px; border-radius: 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+}
+#user-name { font-size: 12px; font-weight: 700; color: var(--text); max-width: 120px;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.icon-btn { width: 32px; height: 32px; border: none; border-radius: 8px;
+            background: var(--surface2); cursor: pointer; font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--muted); transition: .15s; }
+.icon-btn:hover { background: var(--border); }
+
+/* ── Calendar toolbar ── */
+#cal-toolbar { background: var(--surface2); border-bottom: 1px solid var(--border);
+               height: 46px; display: flex; align-items: center;
+               padding: 0 20px; gap: 8px; flex-shrink: 0; }
+#cal-toolbar.hidden { display: none; }
+.btn { height: 32px; padding: 0 14px; border-radius: 8px; border: none;
+       cursor: pointer; font-size: 13px; background: var(--surface2);
+       color: var(--text); transition: .15s; font-weight: 500; }
+.btn:hover { background: var(--border); }
+.btn.primary {
+  background: linear-gradient(135deg, var(--accent), #818cf8);
+  color: #fff; border: none;
+}
+.btn.primary:hover { opacity: .9; }
+.btn.flat { background: none; }
+.btn.flat:hover { background: var(--surface2); }
+#month-label { font-size: 14px; font-weight: 800; min-width: 200px;
+               text-align: center; text-transform: uppercase;
+               letter-spacing: 0.5px; color: var(--text); }
+.nav-btn { width: 30px; height: 30px; border: none; border-radius: 8px;
+           background: none; cursor: pointer; font-size: 18px; color: var(--text);
+           display: flex; align-items: center; justify-content: center; transition: .15s; }
+.nav-btn:hover { background: var(--surface2); }
+
+/* ── Main layout ── */
+#main { flex: 1; display: flex; overflow: hidden; }
+
+/* ── Calendar tab ── */
+#cal-tab { flex: 1; display: flex; overflow: hidden; }
+#cal-grid-wrap { flex: 1; padding: 14px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; }
+.dow-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.dow-cell { text-align: center; font-size: 10px; font-weight: 800; color: var(--muted);
+            padding: 2px 0; text-transform: uppercase; letter-spacing: 0.8px; }
+.dow-cell.weekend { color: var(--red); }
+#cal-grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr);
+            grid-template-rows: repeat(6, 1fr); gap: 4px; }
+.day-cell { background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 5px; overflow: hidden;
+            cursor: pointer; transition: border-color .15s, background .15s;
+            display: flex; flex-direction: column; gap: 3px;
+            position: relative; }
+.day-cell:hover { border-color: #c7d2fe; }
+.day-cell:hover .add-btn { opacity: 1; }
+.day-cell.other-month { background: var(--surface2); }
+.day-cell.today { background: var(--today-bg); border-color: var(--accent); }
+.day-cell.selected { background: var(--sel-bg); border: 2px solid var(--accent); }
+.day-num { font-size: 12px; font-weight: 700; line-height: 1; color: var(--text); }
+.day-cell.other-month .day-num { color: var(--muted); opacity: .5; }
+.day-cell.today .day-num { color: var(--accent-h); font-weight: 900; }
+.day-cell.selected .day-num { color: var(--accent); }
+.add-btn { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px;
+           background: linear-gradient(135deg, var(--accent), #818cf8);
+           color: #fff; border: none; border-radius: 5px;
+           font-size: 13px; cursor: pointer; line-height: 18px; text-align: center;
+           opacity: 0; transition: .15s; padding: 0; }
+
+.workout-chip {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 5px;
+  display: flex; gap: 3px; overflow: hidden; cursor: pointer;
+  position: relative; box-shadow: 0 1px 2px rgba(0,0,0,.05); transition: box-shadow .15s;
+}
+.workout-chip:hover { box-shadow: 0 2px 6px rgba(0,0,0,.10); }
+.chip-cat-bar { width: 3px; flex-shrink: 0; border-radius: 0; }
+.chip-body { padding: 2px 4px 2px 2px; overflow: hidden; flex: 1; }
+.chip-int-stripe { position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+.chip-title { font-size: 10px; font-weight: 600; white-space: nowrap;
+              overflow: hidden; text-overflow: ellipsis; padding-top: 2px; }
+.chip-meta { font-size: 9px; color: var(--muted); }
+
+/* ── Detail panel ── */
+#detail-panel { width: 310px; background: var(--surface);
+                border-left: 1px solid var(--border);
+                overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; }
+.panel-section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.panel-section:last-child { border-bottom: none; }
+.section-label { font-size: 10px; font-weight: 800; color: var(--muted);
+                 letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 8px; }
+.selected-date { font-size: 15px; font-weight: 800; color: var(--text); }
+.day-workout-item {
+  background: var(--surface2); border-radius: 8px;
+  padding: 8px 10px; cursor: pointer; margin-bottom: 6px;
+  border: 1.5px solid transparent; transition: .15s;
+  border-left: 4px solid transparent;
+}
+.day-workout-item:hover { border-color: var(--border); background: #fff; }
+.day-workout-item.active { background: var(--sel-bg); border-color: var(--accent); border-left-color: var(--accent); }
+.dwi-title { font-size: 13px; font-weight: 600; }
+.dwi-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.empty-msg { font-size: 12px; color: var(--muted); }
+
+.wo-title { font-size: 14px; font-weight: 800; margin-bottom: 8px; }
+.chips-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.info-chip {
+  border-radius: 8px; padding: 3px 10px; font-size: 11px;
+  font-weight: 600; background: var(--surface2); color: var(--muted);
+}
+.info-chip.cat-run  { background: #dcfce7; color: #15803d; }
+.info-chip.cat-bike { background: #ffedd5; color: #c2410c; }
+.info-chip.cat-swim { background: #cffafe; color: #0e7490; }
+.info-chip.int-easy     { background: #dcfce7; color: #15803d; }
+.info-chip.int-moderate { background: #fef3c7; color: #b45309; }
+.info-chip.int-hard     { background: #fee2e2; color: #b91c1c; }
+.action-row { display: flex; gap: 6px; margin-bottom: 8px; }
+.small-btn { height: 28px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--border);
+             background: var(--surface2); font-size: 12px; cursor: pointer; color: var(--text);
+             font-weight: 500; }
+.small-btn:hover { background: var(--border); }
+.small-btn.danger:hover { background: #fee2e2; border-color: var(--red); color: var(--red); }
+
+.form-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.form-row label { font-size: 10px; font-weight: 800; color: var(--muted);
+                  text-transform: uppercase; letter-spacing: 0.8px; }
+.form-row select, .form-row input, .form-row textarea {
+  width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: 13px; background: var(--surface2);
+  color: var(--text); outline: none; }
+.form-row select:focus, .form-row input:focus, .form-row textarea:focus { border-color: var(--accent); }
+.form-row textarea { height: 60px; padding: 8px 10px; resize: none; }
+
+.comment-item { background: var(--surface2); border-radius: 8px;
+                padding: 8px 10px; margin-bottom: 6px; border-left: 3px solid var(--accent); }
+.comment-author { font-size: 11px; font-weight: 800; color: var(--accent);
+                  text-transform: uppercase; letter-spacing: 0.5px; }
+.comment-text { font-size: 12px; margin-top: 3px; }
+.comment-input-row { display: flex; gap: 6px; }
+.comment-input-row input { flex: 1; height: 34px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: 8px; font-size: 13px;
+  background: var(--surface2); color: var(--text); outline: none; }
+.comment-input-row input:focus { border-color: var(--accent); }
+
+/* ── Builder tab ── */
+#builder-tab { flex: 1; padding: 20px; display: flex; gap: 16px; overflow: hidden; }
+.card { background: var(--surface); border: 1px solid var(--border);
+        border-radius: 14px; padding: 20px; box-shadow: var(--shadow); }
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+}
+.card-title { font-size: 11px; font-weight: 800; text-transform: uppercase;
+              letter-spacing: 1.2px; color: var(--muted); }
+#builder-editor { width: 320px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+#builder-library { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.lib-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2); border-radius: 10px; padding: 8px 12px;
+  margin-bottom: 12px;
+}
+.lib-toolbar label { font-size: 11px; font-weight: 700; color: var(--muted);
+                     white-space: nowrap; text-transform: uppercase; letter-spacing: 0.5px; }
+.lib-toolbar input { flex: 1; border: none; background: transparent; outline: none;
+                     font-size: 13px; color: var(--text); }
+
+.tpl-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.tpl-item {
+  background: var(--surface2); border-radius: 10px; padding: 12px 14px;
+  border: 1.5px solid transparent; cursor: pointer;
+  border-left: 4px solid transparent; transition: .15s; display: flex; flex-direction: column; gap: 4px;
+}
+.tpl-item:hover { background: #fff; box-shadow: var(--shadow); }
+.tpl-item.selected { background: var(--sel-bg); border-color: var(--accent); border-left-color: var(--accent); }
+.tpl-name { font-size: 13px; font-weight: 700; }
+.tpl-meta { font-size: 11px; color: var(--muted); }
+.tpl-actions { display: flex; gap: 6px; margin-top: 4px; }
+
+.cat-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 20px; padding: 0 8px; border-radius: 10px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.cat-badge.run  { background: #dcfce7; color: #15803d; }
+.cat-badge.bike { background: #ffedd5; color: #c2410c; }
+.cat-badge.swim { background: #cffafe; color: #0e7490; }
+
+/* ── Analytics tab ── */
+#analytics-tab { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+#analytics-title { font-size: 11px; font-weight: 800; text-transform: uppercase;
+                   letter-spacing: 1.5px; color: var(--muted); }
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.kpi-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px; box-shadow: var(--shadow); overflow: hidden;
+}
+.kpi-bar { height: 4px; border-radius: 4px 4px 0 0; margin: -16px -16px 14px -16px; }
+.kpi-label { font-size: 10px; font-weight: 800; color: var(--muted);
+             text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.kpi-value { font-size: 30px; font-weight: 900; color: var(--text); line-height: 1; }
+.kpi-unit  { font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+
+.stat-section { display: flex; flex-direction: column; gap: 10px; }
+.stat-row { display: flex; flex-direction: column; gap: 4px; }
+.stat-row-header { display: flex; justify-content: space-between; align-items: center; }
+.stat-row-label { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.stat-row-value { font-size: 12px; font-weight: 700; }
+.stat-bar-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+.stat-bar-fill  { height: 100%; border-radius: 3px; transition: width .5s ease; }
+
+/* ── Modal ── */
+#modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.45);
+                 display: flex; align-items: center; justify-content: center;
+                 z-index: 999; backdrop-filter: blur(3px); }
+#modal-overlay.hidden { display: none; }
+#modal { background: var(--surface); border-radius: 16px; width: 460px;
+         box-shadow: 0 24px 60px rgba(0,0,0,.20);
+         display: flex; flex-direction: column; max-height: 90dvh; }
+.modal-header {
+  padding: 16px 20px 12px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: flex-start;
+  background: var(--surface2); border-radius: 16px 16px 0 0;
+}
+.modal-header h3 { font-size: 14px; font-weight: 800; text-transform: uppercase;
+                   letter-spacing: 0.8px; }
+.modal-header .sub { font-size: 12px; color: var(--accent); margin-top: 3px; font-weight: 600; }
+.modal-close { width: 28px; height: 28px; border: none; border-radius: 7px;
+               background: var(--border); cursor: pointer; font-size: 14px; }
+.modal-body { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.modal-footer {
+  padding: 12px 20px 16px; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 8px;
+  background: var(--surface2); border-radius: 0 0 16px 16px;
+}
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 10px; font-weight: 800; color: var(--muted);
+               text-transform: uppercase; letter-spacing: 0.8px; }
+.field input, .field select, .field textarea {
+  width: 100%; height: 36px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: 8px; font-size: 13px;
+  background: var(--surface2); color: var(--text); outline: none; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+.field textarea { height: 66px; padding: 8px 10px; resize: none; }
+.field-row { display: flex; gap: 12px; }
+.field-row .field { flex: 1; }
+.field input[type=checkbox] { width: auto; height: auto; }
+.check-field { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; }
+.check-field input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+
+/* ── Add athlete modal ── */
+#add-athlete-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.45);
+                       display: flex; align-items: center; justify-content: center;
+                       z-index: 1001; backdrop-filter: blur(3px); }
+#add-athlete-overlay.hidden { display: none; }
+#add-athlete-box { background: var(--surface); border-radius: 16px; width: 380px;
+                   box-shadow: 0 24px 60px rgba(0,0,0,.20); padding: 24px; }
+#add-athlete-box h3 { font-size: 14px; font-weight: 800; text-transform: uppercase;
+                      letter-spacing: 0.8px; margin-bottom: 16px; }
+#add-athlete-box .field { margin-bottom: 14px; }
+#add-athlete-error { color: var(--red); font-size: 12px; min-height: 18px; margin-bottom: 8px; }
+#add-athlete-box .btn-row { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ── Confirm dialog ── */
+#confirm-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.45);
+                   display: flex; align-items: center; justify-content: center;
+                   z-index: 1000; backdrop-filter: blur(3px); }
+#confirm-overlay.hidden { display: none; }
+#confirm-box { background: var(--surface); border-radius: 14px; padding: 24px;
+               width: 320px; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+#confirm-box h4 { font-size: 14px; font-weight: 800; margin-bottom: 6px;
+                  text-transform: uppercase; letter-spacing: 0.5px; }
+#confirm-box p  { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+#confirm-box .btn-row { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ── Toast ── */
+#toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+         background: #1e293b; color: #f1f5f9; padding: 10px 20px; border-radius: 10px;
+         font-size: 13px; font-weight: 500; opacity: 0; transition: opacity .2s;
+         pointer-events: none; z-index: 2000; }
+#toast.show { opacity: 1; }
+
+/* ── Body pain map ── */
+.body-map { display: flex; gap: 12px; align-items: flex-start; margin-top: 8px; }
+.body-map-fig { flex-shrink: 0; }
+.body-map-info { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.body-map-hint { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.pain-tag-list { display: flex; flex-wrap: wrap; gap: 4px; min-height: 22px; }
+.pain-tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: #fee2e2; color: #b91c1c; border-radius: 8px;
+  padding: 2px 6px 2px 8px; font-size: 10px; font-weight: 700;
+}
+.pain-tag button { background: none; border: none; cursor: pointer; color: #b91c1c;
+                   font-size: 12px; padding: 0; line-height: 1; margin-left: 1px; }
+.pain-dot {
+  cursor: pointer; fill: rgba(255,255,255,0.15);
+  stroke: rgba(148,163,184,0.6); stroke-width: 1.5; transition: fill .15s, stroke .15s;
+}
+.pain-dot:hover { fill: rgba(239,68,68,0.25); stroke: #ef4444; stroke-width: 2; }
+.pain-dot.active { fill: #ef4444; stroke: #b91c1c; stroke-width: 2; }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ── Auth overlay ── -->
+<div id="auth-overlay">
+  <div id="auth-box">
+    <div class="auth-logo">
+      <div class="auth-logo-badge">S</div>
+      <div>
+        <div class="auth-logo-text">SportCal</div>
+        <div class="auth-logo-sub">Платформа для тренеров и атлетов</div>
+      </div>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login-btn" onclick="showAuthTab('login')">Вход</button>
+      <button class="auth-tab" id="tab-reg-btn" onclick="showAuthTab('register')">Регистрация</button>
+    </div>
+
+    <!-- Login -->
+    <div id="login-form" class="auth-body">
+      <div class="auth-field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="auth-field">
+        <label>Пароль</label>
+        <input type="password" id="login-password" placeholder="Ваш пароль" autocomplete="current-password">
+      </div>
+      <div id="login-error" class="auth-error"></div>
+      <button class="auth-btn" id="login-btn" onclick="doLogin()">Войти</button>
+    </div>
+
+    <!-- Register -->
+    <div id="register-form" class="auth-body" style="display:none">
+      <div class="auth-field">
+        <label>Имя</label>
+        <input type="text" id="reg-name" placeholder="Иван Петров" autocomplete="name">
+      </div>
+      <div class="auth-field">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="auth-field">
+        <label>Пароль <span style="font-weight:400;text-transform:none;font-size:9px">(мин. 8 символов)</span></label>
+        <input type="password" id="reg-password" placeholder="Минимум 8 символов" autocomplete="new-password">
+      </div>
+      <div class="auth-field">
+        <label>Я регистрируюсь как</label>
+        <div class="role-cards">
+          <label class="role-card selected" id="role-card-athlete">
+            <input type="radio" name="reg-role" value="athlete" checked onchange="onRoleCardChange()">
+            <div class="role-card-icon">🏃</div>
+            <div class="role-card-label">Атлет</div>
+            <div class="role-card-desc">Слежу за своими тренировками</div>
+          </label>
+          <label class="role-card" id="role-card-coach">
+            <input type="radio" name="reg-role" value="coach" onchange="onRoleCardChange()">
+            <div class="role-card-icon">🏋</div>
+            <div class="role-card-label">Тренер</div>
+            <div class="role-card-desc">Управляю планами атлетов</div>
+          </label>
+        </div>
+      </div>
+      <div id="reg-error" class="auth-error"></div>
+      <button class="auth-btn" id="reg-btn" onclick="doRegister()">Зарегистрироваться</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── App ── -->
+<div id="sport-bar"></div>
+
+<div id="header">
+  <div class="logo-wrap">
+    <div class="logo-badge">S</div>
+    <span class="logo-text">SportCal</span>
+  </div>
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="setTab('calendar')">Календарь</button>
+    <button class="tab-btn" onclick="setTab('builder')">Шаблоны</button>
+    <button class="tab-btn" onclick="setTab('analytics')">Аналитика</button>
+  </div>
+  <div class="spacer"></div>
+
+  <!-- Athlete selector -->
+  <div class="sel-wrap" id="athlete-sel-wrap">
+    <span class="sel-icon">🏃</span>
+    <select id="athlete-sel" onchange="onAthleteChange(this.value)"></select>
+  </div>
+
+  <!-- Add athlete button (coach only) -->
+  <button id="add-athlete-btn" class="icon-btn" title="Добавить атлета" onclick="openAddAthlete()" style="display:none">➕</button>
+
+  <!-- User info -->
+  <div id="user-info">
+    <span id="user-name">—</span>
+  </div>
+  <span id="role-pill" class="role-pill athlete">🏃 Атлет</span>
+  <button class="icon-btn" title="Выйти" onclick="logout()">⎋</button>
+
+  <button class="btn primary" id="add-btn" onclick="openCreateModal(null)" style="display:none">+ Тренировка</button>
+</div>
+
+<div id="cal-toolbar">
+  <button class="btn" onclick="goToToday()">Сегодня</button>
+  <button class="nav-btn" onclick="prevMonth()">‹</button>
+  <span id="month-label"></span>
+  <button class="nav-btn" onclick="nextMonth()">›</button>
+</div>
+
+<div id="main">
+  <!-- Calendar tab -->
+  <div id="cal-tab">
+    <div id="cal-grid-wrap">
+      <div class="dow-row">
+        <div class="dow-cell">Пн</div><div class="dow-cell">Вт</div>
+        <div class="dow-cell">Ср</div><div class="dow-cell">Чт</div>
+        <div class="dow-cell">Пт</div>
+        <div class="dow-cell weekend">Сб</div><div class="dow-cell weekend">Вс</div>
+      </div>
+      <div id="cal-grid"></div>
+    </div>
+
+    <div id="detail-panel">
+      <div class="panel-section">
+        <div class="section-label">Выбрана дата</div>
+        <div id="selected-date-label" class="selected-date">—</div>
+      </div>
+      <div class="panel-section" id="day-workouts-section">
+        <div class="section-label">Тренировки</div>
+        <div id="day-workouts-list"></div>
+      </div>
+      <div class="panel-section" id="workout-detail-section" style="display:none">
+        <div class="section-label">Детали</div>
+        <div id="workout-detail"></div>
+      </div>
+      <div class="panel-section" id="status-section" style="display:none">
+        <div class="section-label">Статус и фидбек</div>
+        <div id="status-form"></div>
+      </div>
+      <div class="panel-section" id="comments-section" style="display:none">
+        <div class="section-label">Комментарии</div>
+        <div id="comments-list"></div>
+        <div class="comment-input-row" style="margin-top:8px">
+          <input id="comment-input" type="text" placeholder="Написать комментарий...">
+          <button class="btn primary" style="height:34px;padding:0 14px" onclick="submitComment()">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Builder tab -->
+  <div id="builder-tab" style="display:none">
+    <div id="builder-editor" class="card">
+      <div class="card-header">
+        <span class="card-title" id="editor-title">Новый шаблон</span>
+        <button class="btn flat" style="height:26px;padding:0 10px;font-size:11px" onclick="resetTplForm()">Сброс</button>
+      </div>
+      <div class="field"><label>Название</label>
+        <input id="tpl-title" type="text" placeholder="Например: Длинный бег">
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Категория</label>
+          <select id="tpl-cat">
+            <option value="run">🏃 Бег</option>
+            <option value="bike">🚴 Вело</option>
+            <option value="swim">🏊 Плавание</option>
+          </select>
+        </div>
+        <div class="field"><label>Интенсивность</label>
+          <select id="tpl-int">
+            <option value="easy">😌 Легко</option>
+            <option value="moderate">💪 Умеренно</option>
+            <option value="hard">🔥 Тяжело</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Дистанция (км)</label>
+          <input id="tpl-km" type="number" min="0" max="500" value="10" placeholder="0">
+        </div>
+        <div class="field"><label>Длительность (мин)</label>
+          <input id="tpl-min" type="number" min="0" max="600" value="60" placeholder="0">
+        </div>
+      </div>
+      <div class="field"><label>Теги</label>
+        <input id="tpl-tags" type="text" placeholder="восстановление, скорость...">
+      </div>
+      <div class="field"><label>Описание</label>
+        <textarea id="tpl-notes" placeholder="Структура тренировки, цели..."></textarea>
+      </div>
+      <button class="btn primary" style="width:100%" onclick="saveTpl()">Сохранить шаблон</button>
+    </div>
+    <div id="builder-library" class="card">
+      <div class="card-header">
+        <span class="card-title">Библиотека шаблонов</span>
+      </div>
+      <div class="lib-toolbar">
+        <label>📅 Запланировать на:</label>
+        <input id="plan-date" type="date">
+      </div>
+      <div class="tpl-list" id="tpl-list"></div>
+    </div>
+  </div>
+
+  <!-- Analytics tab -->
+  <div id="analytics-tab" style="display:none">
+    <div id="analytics-title">Аналитика</div>
+    <div class="kpi-grid" id="kpi-grid"></div>
+    <div class="card">
+      <h2>По интенсивности</h2>
+      <div class="stat-section" id="intensity-row" style="margin-top:4px"></div>
+    </div>
+    <div class="card">
+      <h2>По категориям</h2>
+      <div class="stat-section" id="category-row" style="margin-top:4px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Create/Edit workout modal -->
+<div id="modal-overlay" class="hidden">
+  <div id="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-title">Новая тренировка</h3>
+        <div class="sub" id="modal-date"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Категория</label>
+        <select id="wo-cat">
+          <option value="run">🏃 run — Бег</option>
+          <option value="bike">🚴 bike — Вело</option>
+          <option value="swim">🏊 swim — Плавание</option>
+        </select>
+      </div>
+      <div class="field"><label>Название</label>
+        <input id="wo-title" type="text" placeholder="Например: Бег — интервалы">
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Дистанция (км)</label>
+          <input id="wo-km" type="number" min="0" max="500" step="0.1" value="5">
+        </div>
+        <div class="field"><label>Длительность (мин)</label>
+          <input id="wo-min" type="number" min="0" max="600" value="45">
+        </div>
+      </div>
+      <div class="field"><label>Интенсивность</label>
+        <select id="wo-int">
+          <option value="easy">😌 Легко</option>
+          <option value="moderate" selected>💪 Умеренно</option>
+          <option value="hard">🔥 Тяжело</option>
+        </select>
+      </div>
+      <div class="field"><label>Заметки</label>
+        <textarea id="wo-notes" placeholder="Темп, пульс, ощущения..."></textarea>
+      </div>
+      <label class="check-field">
+        <input type="checkbox" id="wo-hidden"> Скрыть от атлета
+      </label>
+      <div id="modal-error" style="color:var(--red);font-size:12px;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Отмена</button>
+      <button class="btn primary" onclick="saveWorkout()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add athlete modal -->
+<div id="add-athlete-overlay" class="hidden">
+  <div id="add-athlete-box" onclick="event.stopPropagation()">
+    <h3>Добавить атлета</h3>
+    <div class="field">
+      <label>Email атлета</label>
+      <input type="email" id="aa-email" placeholder="athlete@example.com">
+    </div>
+    <div id="add-athlete-error"></div>
+    <div class="btn-row">
+      <button class="btn" onclick="closeAddAthlete()">Отмена</button>
+      <button class="btn primary" onclick="doAddAthlete()">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm dialog -->
+<div id="confirm-overlay" class="hidden">
+  <div id="confirm-box">
+    <h4 id="confirm-title">Вы уверены?</h4>
+    <p id="confirm-msg">Это действие нельзя отменить.</p>
+    <div class="btn-row">
+      <button class="btn" onclick="confirmResolve(false)">Отмена</button>
+      <button class="btn primary" style="background:var(--red)" onclick="confirmResolve(true)">Удалить</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = 'http://localhost:8000';
+
+// ── Auth state ─────────────────────────────────────────────────────────────
+const AUTH = {
+  token: null,
+  userId: '',
+  userRole: '',
+  userName: '',
+  athleteId: null,
+};
+
+function getToken() { return AUTH.token; }
+
+function saveAuth(data) {
+  AUTH.token     = data.access_token;
+  AUTH.userId    = data.user_id;
+  AUTH.userRole  = data.role;
+  AUTH.userName  = data.name;
+  AUTH.athleteId = data.athlete_id || null;
+  localStorage.setItem('sc_token', data.access_token);
+  localStorage.setItem('sc_user',  JSON.stringify({
+    user_id: data.user_id, role: data.role,
+    name: data.name, athlete_id: data.athlete_id,
+  }));
+}
+
+function clearAuth() {
+  AUTH.token = AUTH.userId = AUTH.userRole = AUTH.userName = AUTH.athleteId = null;
+  localStorage.removeItem('sc_token');
+  localStorage.removeItem('sc_user');
+}
+
+// ── App state ──────────────────────────────────────────────────────────────
+const S = {
+  athletes: [],
+  selectedAthleteId: '',
+  today: new Date(),
+  year: new Date().getFullYear(),
+  month: new Date().getMonth() + 1,
+  selectedDate: fmtDate(new Date()),
+  dayCells: [],
+  dayWorkouts: [],
+  selectedWorkoutId: null,
+  selectedWorkout: null,
+  comments: [],
+  analytics: {},
+  templates: [],
+  tab: 'calendar',
+  editingId: null,
+  planDate: fmtDate(new Date()),
+  editingTplId: null,
+  painPoints: {},
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function fmtDate(d) { return d.toISOString().slice(0, 10); }
+
+function toDisplay(iso) {
+  const [y, m, d] = iso.split('-');
+  const months = ['января','февраля','марта','апреля','мая','июня',
+                  'июля','августа','сентября','октября','ноября','декабря'];
+  return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+}
+
+function intColor(i) { return { easy:'#22c55e', moderate:'#f59e0b', hard:'#ef4444' }[i] || '#6b7280'; }
+function catColor(c) { return { run:'#22c55e', bike:'#f97316', swim:'#06b6d4' }[c] || '#6366f1'; }
+function intLabel(i) { return { easy:'Легко', moderate:'Умеренно', hard:'Тяжело' }[i] || i; }
+function catIcon(c)  { return { run:'🏃', bike:'🚴', swim:'🏊' }[c] || '⚡'; }
+function statusLabel(s) { return { planned:'Запланировано', done:'Выполнено', skipped:'Пропущено' }[s] || s; }
+function monthName(m) {
+  return ['Январь','Февраль','Март','Апрель','Май','Июнь',
+          'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][m - 1];
+}
+function isCoach() { return AUTH.userRole === 'coach'; }
+
+// ── Auth UI ────────────────────────────────────────────────────────────────
+function showAuthTab(tab) {
+  document.getElementById('login-form').style.display    = tab === 'login'    ? '' : 'none';
+  document.getElementById('register-form').style.display = tab === 'register' ? '' : 'none';
+  document.getElementById('tab-login-btn').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-reg-btn').classList.toggle('active', tab === 'register');
+}
+
+function onRoleCardChange() {
+  const val = document.querySelector('input[name="reg-role"]:checked').value;
+  document.getElementById('role-card-athlete').classList.toggle('selected', val === 'athlete');
+  document.getElementById('role-card-coach').classList.toggle('selected', val === 'coach');
+}
+
+async function doLogin() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl    = document.getElementById('login-error');
+  const btn      = document.getElementById('login-btn');
+
+  errEl.classList.remove('show');
+  if (!email || !password) { showAuthError('login', 'Заполните все поля'); return; }
+
+  btn.disabled = true; btn.textContent = 'Входим...';
+  try {
+    const data = await authReq('POST', '/api/auth/login', { email, password });
+    saveAuth(data);
+    hideAuthOverlay();
+    await initApp();
+  } catch (e) {
+    showAuthError('login', e.message || 'Ошибка входа');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Войти';
+  }
+}
+
+async function doRegister() {
+  const name     = document.getElementById('reg-name').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const role     = document.querySelector('input[name="reg-role"]:checked').value;
+  const btn      = document.getElementById('reg-btn');
+
+  if (!name || !email || !password) { showAuthError('reg', 'Заполните все поля'); return; }
+
+  btn.disabled = true; btn.textContent = 'Регистрируем...';
+  try {
+    const data = await authReq('POST', '/api/auth/register', { name, email, password, role });
+    saveAuth(data);
+    hideAuthOverlay();
+    await initApp();
+  } catch (e) {
+    showAuthError('reg', e.message || 'Ошибка регистрации');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Зарегистрироваться';
+  }
+}
+
+function showAuthError(form, msg) {
+  const id = form === 'login' ? 'login-error' : 'reg-error';
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function hideAuthOverlay() {
+  document.getElementById('auth-overlay').classList.add('hidden');
+}
+
+function showAuthOverlay() {
+  document.getElementById('auth-overlay').classList.remove('hidden');
+  showAuthTab('login');
+  document.getElementById('login-email').value    = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').classList.remove('show');
+}
+
+function logout() {
+  clearAuth();
+  showAuthOverlay();
+}
+
+// Auth-specific fetch (no token, raw error text)
+async function authReq(method, path, body) {
+  const r = await fetch(API + path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const detail = json.detail || (Array.isArray(json.detail) ? json.detail[0]?.msg : null) || r.statusText;
+    throw new Error(Array.isArray(detail) ? detail.map(d=>d.msg).join('; ') : String(detail));
+  }
+  return json;
+}
+
+// ── Pain map ───────────────────────────────────────────────────────────────
+const PAIN_POINTS = [
+  { id:'head',      name:'Голова',          cx:50,  cy:12  },
+  { id:'neck',      name:'Шея',             cx:50,  cy:27  },
+  { id:'lshoulder', name:'Лев. плечо',      cx:22,  cy:36  },
+  { id:'rshoulder', name:'Прав. плечо',     cx:78,  cy:36  },
+  { id:'chest',     name:'Грудь / пресс',   cx:50,  cy:60  },
+  { id:'lback',     name:'Поясница',        cx:50,  cy:83  },
+  { id:'lelbow',    name:'Лев. локоть',     cx:10,  cy:70  },
+  { id:'relbow',    name:'Прав. локоть',    cx:90,  cy:70  },
+  { id:'lwrist',    name:'Лев. запястье',   cx:6,   cy:100 },
+  { id:'rwrist',    name:'Прав. запястье',  cx:94,  cy:100 },
+  { id:'lhip',      name:'Лев. бедро',      cx:34,  cy:108 },
+  { id:'rhip',      name:'Прав. бедро',     cx:66,  cy:108 },
+  { id:'lknee',     name:'Лев. колено',     cx:32,  cy:152 },
+  { id:'rknee',     name:'Прав. колено',    cx:68,  cy:152 },
+  { id:'lshin',     name:'Лев. голень',     cx:31,  cy:174 },
+  { id:'rshin',     name:'Прав. голень',    cx:69,  cy:174 },
+  { id:'lankle',    name:'Лев. лодыжка',    cx:29,  cy:198 },
+  { id:'rankle',    name:'Прав. лодыжка',   cx:71,  cy:198 },
+];
+
+const BODY_SVG = `<svg viewBox="0 0 100 215" xmlns="http://www.w3.org/2000/svg" style="width:88px;height:188px;display:block">
+  <g fill="#cbd5e1" stroke="none">
+    <ellipse cx="50" cy="12" rx="11" ry="12"/>
+    <rect x="46" y="23" width="8" height="7" rx="2"/>
+    <path d="M22,30 Q50,27 78,30 L76,107 Q50,111 24,107 Z"/>
+    <ellipse cx="5" cy="107" rx="5" ry="7"/>
+    <ellipse cx="95" cy="107" rx="5" ry="7"/>
+    <ellipse cx="28" cy="203" rx="9" ry="5"/>
+    <ellipse cx="72" cy="203" rx="9" ry="5"/>
+  </g>
+  <g fill="none" stroke="#cbd5e1" stroke-linecap="round">
+    <path d="M22,36 Q14,56 10,70" stroke-width="11"/>
+    <path d="M10,70 Q7,86 6,100" stroke-width="9"/>
+    <path d="M78,36 Q86,56 90,70" stroke-width="11"/>
+    <path d="M90,70 Q93,86 94,100" stroke-width="9"/>
+    <path d="M34,108 Q33,132 32,152" stroke-width="13"/>
+    <path d="M32,152 Q31,176 30,197" stroke-width="10"/>
+    <path d="M66,108 Q67,132 68,152" stroke-width="13"/>
+    <path d="M68,152 Q69,176 70,197" stroke-width="10"/>
+  </g>
+  ${PAIN_POINTS.map(p => `<circle cx="${p.cx}" cy="${p.cy}" r="${
+    ['head','chest'].includes(p.id) ? 7 :
+    ['lshoulder','rshoulder','lhip','rhip','lknee','rknee'].includes(p.id) ? 6 : 5
+  }" class="pain-dot" data-id="${p.id}" onclick="togglePain('${p.id}','${p.name}')"><title>${p.name}</title></circle>`).join('')}
+</svg>`;
+
+function togglePain(id, name) {
+  if (S.painPoints[id]) delete S.painPoints[id]; else S.painPoints[id] = name;
+  refreshPainUI();
+}
+
+function refreshPainUI() {
+  document.querySelectorAll('.pain-dot').forEach(d =>
+    d.classList.toggle('active', !!S.painPoints[d.dataset.id])
+  );
+  const tags = document.getElementById('pain-tags');
+  const hint = document.getElementById('pain-hint');
+  if (!tags) return;
+  const entries = Object.entries(S.painPoints);
+  tags.innerHTML = entries.map(([id, name]) =>
+    `<span class="pain-tag">🔴 ${name}<button onclick="togglePain('${id}','${name}')">×</button></span>`
+  ).join('');
+  if (hint) hint.style.display = entries.length ? 'none' : '';
+}
+
+function parsePainFromFeedback(fb) {
+  S.painPoints = {};
+  const m = (fb || '').match(/\[Болит: ([^\]]+)\]/);
+  if (!m) return;
+  m[1].split(', ').forEach(name => {
+    const p = PAIN_POINTS.find(x => x.name === name);
+    if (p) S.painPoints[p.id] = p.name;
+  });
+}
+
+function cleanFeedback(fb) { return (fb || '').replace(/\s*\[Болит:[^\]]*\]/, '').trim(); }
+
+// ── API helpers ────────────────────────────────────────────────────────────
+async function req(method, path, body) {
+  const token = getToken();
+  try {
+    const r = await fetch(API + path, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+      body: body != null ? JSON.stringify(body) : undefined,
+    });
+    if (r.status === 401) {
+      clearAuth();
+      showAuthOverlay();
+      throw new Error('Сессия истекла. Войдите снова.');
+    }
+    if (!r.ok) {
+      const t = await r.json().catch(() => ({}));
+      const detail = t.detail;
+      const msg = Array.isArray(detail) ? detail.map(d=>d.msg).join('; ') : (detail || r.statusText);
+      throw new Error(msg);
+    }
+    if (r.status === 204) return null;
+    return r.json();
+  } catch (e) {
+    toast('Ошибка: ' + (e.message || 'нет связи с сервером'));
+    throw e;
+  }
+}
+
+const get  = (p)    => req('GET',    p);
+const post = (p, b) => req('POST',   p, b);
+const put  = (p, b) => req('PUT',    p, b);
+const del  = (p)    => req('DELETE', p);
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, ms = 3000) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+// ── Header UI ──────────────────────────────────────────────────────────────
+function updateHeader() {
+  document.getElementById('user-name').textContent = AUTH.userName || '—';
+  const pill = document.getElementById('role-pill');
+  if (isCoach()) {
+    pill.className = 'role-pill coach'; pill.textContent = '🏋 Тренер';
+  } else {
+    pill.className = 'role-pill athlete'; pill.textContent = '🏃 Атлет';
+  }
+  document.getElementById('add-btn').style.display         = isCoach() ? '' : 'none';
+  document.getElementById('add-athlete-btn').style.display = isCoach() ? '' : 'none';
+}
+
+// ── Data loading ───────────────────────────────────────────────────────────
+async function loadAthletes() {
+  S.athletes = await get('/api/athletes');
+  const sel = document.getElementById('athlete-sel');
+  sel.innerHTML = S.athletes.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  if (S.athletes.length) {
+    S.selectedAthleteId = S.athletes[0].id;
+    sel.value = S.selectedAthleteId;
+  }
+  // Hide athlete selector if athlete has only themselves
+  const wrap = document.getElementById('athlete-sel-wrap');
+  wrap.style.display = (!isCoach() && S.athletes.length <= 1) ? 'none' : '';
+}
+
+async function loadCalendar() {
+  if (!S.selectedAthleteId) return;
+  S.dayCells = await get(
+    `/api/calendar/${S.year}/${S.month}?athlete_id=${S.selectedAthleteId}`
+  );
+  renderCalendar();
+}
+
+async function loadDayWorkouts() {
+  if (!S.selectedAthleteId) return;
+  S.dayWorkouts = await get(
+    `/api/workouts?athlete_id=${S.selectedAthleteId}&date=${S.selectedDate}`
+  );
+  renderDayWorkouts();
+}
+
+async function loadWorkoutDetail(id) {
+  S.selectedWorkout = await get(`/api/workouts/${id}`);
+  S.comments = await get(`/api/workouts/${id}/comments`);
+  renderWorkoutDetail();
+}
+
+async function loadTemplates() {
+  S.templates = await get('/api/templates');
+  renderTemplates();
+}
+
+async function loadAnalytics() {
+  if (!S.selectedAthleteId) return;
+  S.analytics = await get(`/api/analytics?athlete_id=${S.selectedAthleteId}`);
+  renderAnalytics();
+}
+
+async function refreshAll() {
+  await loadCalendar();
+  await loadDayWorkouts();
+  if (S.selectedWorkoutId) await loadWorkoutDetail(S.selectedWorkoutId);
+}
+
+// ── Renders ────────────────────────────────────────────────────────────────
+function renderCalendar() {
+  const todayIso = fmtDate(S.today);
+  document.getElementById('month-label').textContent = `${monthName(S.month)} ${S.year}`;
+
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = (S.dayCells || []).map(cell => {
+    const isToday    = cell.dateIso === todayIso;
+    const isSelected = cell.dateIso === S.selectedDate;
+    let cls = 'day-cell';
+    if (!cell.inCurrentMonth) cls += ' other-month';
+    if (isToday)    cls += ' today';
+    if (isSelected) cls += ' selected';
+
+    const chips = (cell.workouts || []).map(w => {
+      const cc = catColor(w.category || w.type);
+      const ic = intColor(w.intensity);
+      return `
+      <div class="workout-chip"
+           onclick="event.stopPropagation();selectWorkout('${cell.dateIso}','${w.id}')">
+        <div class="chip-cat-bar" style="background:${cc}"></div>
+        <div class="chip-int-stripe" style="background:${ic}"></div>
+        <div class="chip-body">
+          <div class="chip-title">${w.typeIcon || catIcon(w.category)} ${esc(w.title)}</div>
+          <div class="chip-meta">${w.distance} · ${w.duration}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    const addBtn = isCoach()
+      ? `<button class="add-btn" onclick="event.stopPropagation();openCreateModal('${cell.dateIso}')">+</button>`
+      : '';
+
+    return `<div class="${cls}" onclick="selectDate('${cell.dateIso}')">
+      ${addBtn}
+      <div class="day-num">${cell.dayNumber}</div>
+      ${chips}
+    </div>`;
+  }).join('');
+}
+
+function renderDayWorkouts() {
+  const dateLabel = S.selectedDate ? toDisplay(S.selectedDate) : '—';
+  document.getElementById('selected-date-label').textContent = dateLabel;
+
+  const list = document.getElementById('day-workouts-list');
+  if (!S.dayWorkouts.length) {
+    list.innerHTML = '<p class="empty-msg">Нет тренировок на этот день</p>'; return;
+  }
+  list.innerHTML = S.dayWorkouts.map(w => {
+    const cc = catColor(w.category || w.type);
+    return `
+    <div class="day-workout-item ${S.selectedWorkoutId === w.id ? 'active' : ''}"
+         style="border-left-color:${cc}"
+         onclick="loadWorkoutDetail('${w.id}').then(()=>{ S.selectedWorkoutId='${w.id}'; renderDayWorkouts(); })">
+      <div class="dwi-title">${w.typeIcon || catIcon(w.category)} ${esc(w.title)}</div>
+      <div class="dwi-meta">${w.distance} · ${w.duration} · <span style="color:${intColor(w.intensity)};font-weight:700">${w.intensityLabel}</span> · ${statusLabel(w.status)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderWorkoutDetail() {
+  const w = S.selectedWorkout;
+  if (!w) {
+    document.getElementById('workout-detail-section').style.display = 'none';
+    document.getElementById('status-section').style.display = 'none';
+    document.getElementById('comments-section').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('workout-detail-section').style.display = '';
+  document.getElementById('status-section').style.display = '';
+  document.getElementById('comments-section').style.display = '';
+
+  const editBtn = isCoach() ? `<button class="small-btn" onclick="openEditModal()">Изменить</button>` : '';
+  const delBtn  = isCoach() ? `<button class="small-btn danger" onclick="deleteWorkout('${w.id}')">Удалить</button>` : '';
+  const cat = w.category || w.type || 'run';
+
+  document.getElementById('workout-detail').innerHTML = `
+    <div class="wo-title">${w.typeIcon || catIcon(cat)} ${esc(w.title)}</div>
+    <div class="chips-row">
+      <span class="info-chip cat-${cat}">📏 ${w.distance}</span>
+      <span class="info-chip cat-${cat}">⏱ ${w.duration}</span>
+      <span class="info-chip int-${w.intensity}">⚡ ${w.intensityLabel}</span>
+      <span class="info-chip">✓ ${statusLabel(w.status)}</span>
+    </div>
+    ${w.athleteMood ? `<p style="font-size:12px;color:var(--muted);margin-bottom:6px">Самочувствие: ${moodLabel(w.athleteMood)}</p>` : ''}
+    ${w.intervalsJson && w.intervalsJson !== '[]' ? `<p style="font-size:11px;color:var(--muted);margin-bottom:6px;word-break:break-all">Интервалы: ${esc(w.intervalsJson)}</p>` : ''}
+    <div class="action-row">${editBtn}${delBtn}</div>`;
+
+  parsePainFromFeedback(w.athleteFeedback);
+  const cleanFb = cleanFeedback(w.athleteFeedback);
+
+  document.getElementById('status-form').innerHTML = `
+    <div class="form-row"><label>Статус</label>
+      <select id="sf-status" onchange="sfStatusChange()">
+        <option value="planned" ${w.status==='planned'?'selected':''}>Запланировано</option>
+        <option value="done"    ${w.status==='done'   ?'selected':''}>Выполнено</option>
+        <option value="skipped" ${w.status==='skipped'?'selected':''}>Пропущено</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Комментарий</label>
+      <input id="sf-feedback" type="text" value="${esc(cleanFb)}" placeholder="Ощущения, заметки...">
+    </div>
+    <div id="sf-mood-wrap" style="display:${w.status==='done'?'':'none'}">
+      <div class="form-row"><label>Самочувствие</label>
+        <select id="sf-mood">
+          <option value="excellent" ${w.athleteMood==='excellent'?'selected':''}>😄 Отлично</option>
+          <option value="good"      ${w.athleteMood==='good'     ?'selected':''}>😊 Хорошо</option>
+          <option value="normal"    ${w.athleteMood==='normal'   ?'selected':''}>😐 Нормально</option>
+          <option value="weak"      ${w.athleteMood==='weak'     ?'selected':''}>😕 Слабость</option>
+          <option value="awful"     ${w.athleteMood==='awful'    ?'selected':''}>😞 Ужасно</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Воспринимаемое усилие (RPE)</label>
+        <select id="sf-rpe">
+          ${[1,2,3,4,5,6].map(n=>`<option value="${n}" ${w.perceivedExertion==n?'selected':''}>
+            ${n} — ${{1:'Очень легко',2:'Легко',3:'Умеренно',4:'Чуть выше среднего',5:'Тяжело',6:'Очень тяжело'}[n]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Болевые точки</label>
+        <div class="body-map">
+          <div class="body-map-fig">${BODY_SVG}</div>
+          <div class="body-map-info">
+            <div class="body-map-hint" id="pain-hint">Нажми на кружок, чтобы отметить боль</div>
+            <div class="pain-tag-list" id="pain-tags"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="btn primary" style="width:100%;margin-top:8px" onclick="saveStatus()">Сохранить статус</button>`;
+
+  refreshPainUI();
+
+  const cl = document.getElementById('comments-list');
+  cl.innerHTML = (S.comments || []).map(c => `
+    <div class="comment-item">
+      <div class="comment-author">${esc(c.author)}</div>
+      <div class="comment-text">${esc(c.text)}</div>
+    </div>`).join('') || '<p class="empty-msg">Комментариев пока нет</p>';
+}
+
+function renderTemplates() {
+  const list = document.getElementById('tpl-list');
+  if (!S.templates.length) { list.innerHTML = '<p class="empty-msg">Шаблонов пока нет</p>'; return; }
+  list.innerHTML = S.templates.map(t => {
+    const cc = catColor(t.category);
+    const isActive = S.editingTplId === t.id;
+    return `
+    <div class="tpl-item ${isActive ? 'selected' : ''}" style="border-left-color:${isActive ? 'var(--accent)' : cc}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="tpl-name">${esc(t.title)}</span>
+        <span class="cat-badge ${t.category}">${catIcon(t.category)} ${t.category}</span>
+      </div>
+      <div class="tpl-meta">${t.distanceKm} км · ${t.durationMin} мин · <span style="color:${intColor(t.intensity)};font-weight:600">${intLabel(t.intensity)}</span></div>
+      <div class="tpl-actions">
+        <button class="small-btn" onclick="planFromTpl('${t.id}')" ${isCoach()?'':' disabled'}>📅 В план</button>
+        ${isCoach() ? `
+        <button class="small-btn" onclick="editTpl(${JSON.stringify(t).replace(/"/g,'&quot;')})">Изменить</button>
+        <button class="small-btn danger" onclick="deleteTpl('${t.id}')">Удалить</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAnalytics() {
+  const a = S.analytics;
+  const athlete = S.athletes.find(x => x.id === S.selectedAthleteId);
+  document.getElementById('analytics-title').textContent = 'Аналитика' + (athlete ? ': ' + athlete.name : '');
+
+  const kpiDefs = [
+    { label:'Тренировок',  value: a.workoutsCount || 0,     unit:'всего',    color:'var(--accent)' },
+    { label:'Минут',       value: a.durationTotal || 0,     unit:'в работе', color:'var(--bike)'   },
+    { label:'Километров',  value: Number(a.distanceTotal||0).toFixed(1), unit:'пройдено', color:'var(--run)' },
+    { label:'Выполнено',   value: (a.byStatus||{}).done || 0, unit:'из плана', color:'var(--swim)' },
+  ];
+  document.getElementById('kpi-grid').innerHTML = kpiDefs.map(k => `
+    <div class="kpi-card">
+      <div class="kpi-bar" style="background:${k.color}"></div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-unit">${k.unit}</div>
+    </div>`).join('');
+
+  const total = a.workoutsCount || 1;
+  const bi = a.byIntensity || {};
+  document.getElementById('intensity-row').innerHTML = [
+    ['easy','#22c55e','Легко'],['moderate','#f59e0b','Умеренно'],['hard','#ef4444','Тяжело']
+  ].map(([k,c,l]) => {
+    const cnt = bi[k] || 0;
+    const pct = Math.round((cnt / total) * 100);
+    return `<div class="stat-row">
+      <div class="stat-row-header">
+        <span class="stat-row-label"><span style="width:10px;height:10px;border-radius:50%;background:${c};display:inline-block"></span>${l}</span>
+        <span class="stat-row-value" style="color:${c}">${cnt}</span>
+      </div>
+      <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%;background:${c}"></div></div>
+    </div>`;
+  }).join('');
+
+  const bc = a.byCategory || {};
+  document.getElementById('category-row').innerHTML = [
+    ['run','var(--run)','🏃 Бег'],['bike','var(--bike)','🚴 Вело'],['swim','var(--swim)','🏊 Плавание']
+  ].map(([k,c,l]) => {
+    const cnt = bc[k] || 0;
+    const pct = Math.round((cnt / total) * 100);
+    return `<div class="stat-row">
+      <div class="stat-row-header">
+        <span class="stat-row-label">${l}</span>
+        <span class="stat-row-value" style="color:${c}">${cnt}</span>
+      </div>
+      <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%;background:${c}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ── Event handlers ─────────────────────────────────────────────────────────
+function setTab(t) {
+  S.tab = t;
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['calendar','builder','analytics'][i] === t);
+  });
+  document.getElementById('cal-tab').style.display       = t==='calendar'  ? 'flex' : 'none';
+  document.getElementById('builder-tab').style.display   = t==='builder'   ? 'flex' : 'none';
+  document.getElementById('analytics-tab').style.display = t==='analytics' ? 'flex' : 'none';
+  document.getElementById('cal-toolbar').classList.toggle('hidden', t !== 'calendar');
+  if (t === 'builder')   loadTemplates();
+  if (t === 'analytics') loadAnalytics();
+}
+
+function onAthleteChange(id) {
+  S.selectedAthleteId = id;
+  S.selectedWorkoutId = null; S.selectedWorkout = null;
+  refreshAll();
+  if (S.tab === 'analytics') loadAnalytics();
+}
+
+function selectDate(iso) {
+  S.selectedDate = iso;
+  S.selectedWorkoutId = null; S.selectedWorkout = null;
+  renderCalendar();
+  loadDayWorkouts();
+  renderWorkoutDetail();
+}
+
+function selectWorkout(dateIso, id) {
+  S.selectedDate = dateIso; S.selectedWorkoutId = id;
+  renderCalendar();
+  loadDayWorkouts().then(() => loadWorkoutDetail(id));
+}
+
+function goToToday() {
+  S.year = S.today.getFullYear(); S.month = S.today.getMonth() + 1;
+  S.selectedDate = fmtDate(S.today);
+  loadCalendar(); loadDayWorkouts();
+}
+
+function prevMonth() { if (S.month===1){S.month=12;S.year--;}else S.month--; loadCalendar(); }
+function nextMonth() { if (S.month===12){S.month=1;S.year++;}else S.month++; loadCalendar(); }
+
+function sfStatusChange() {
+  const v = document.getElementById('sf-status').value;
+  const w = document.getElementById('sf-mood-wrap');
+  if (w) w.style.display = v === 'done' ? '' : 'none';
+}
+
+async function saveStatus() {
+  const w = S.selectedWorkout; if (!w) return;
+  const status   = document.getElementById('sf-status').value;
+  const feedback = document.getElementById('sf-feedback').value.trim();
+  const mood     = (document.getElementById('sf-mood')  || {value:''}).value;
+  const rpe      = parseInt((document.getElementById('sf-rpe') || {value:'0'}).value) || 0;
+
+  const painEntries = Object.values(S.painPoints);
+  const painSuffix  = painEntries.length ? ` [Болит: ${painEntries.join(', ')}]` : '';
+  const fullFeedback = feedback + painSuffix;
+
+  await put(`/api/workouts/${w.id}/status`,
+            { status, athlete_feedback: fullFeedback, athlete_mood: mood, perceived_exertion: rpe });
+  toast('✓ Статус сохранён');
+  await refreshAll();
+  await loadWorkoutDetail(w.id);
+}
+
+async function submitComment() {
+  const input = document.getElementById('comment-input');
+  const text = input.value.trim();
+  if (!text || !S.selectedWorkoutId) return;
+  await post(`/api/workouts/${S.selectedWorkoutId}/comments`, { text });
+  input.value = '';
+  S.comments = await get(`/api/workouts/${S.selectedWorkoutId}/comments`);
+  renderWorkoutDetail();
+}
+
+async function deleteWorkout(id) {
+  const ok = await confirm('Удалить тренировку?', 'Это действие нельзя отменить.');
+  if (!ok) return;
+  await del(`/api/workouts/${id}`);
+  S.selectedWorkoutId = null; S.selectedWorkout = null;
+  toast('Тренировка удалена');
+  await refreshAll();
+  renderWorkoutDetail();
+}
+
+// ── Modal ──────────────────────────────────────────────────────────────────
+function openCreateModal(dateIso) {
+  S.editingId = null;
+  document.getElementById('modal-title').textContent = 'Новая тренировка';
+  document.getElementById('modal-date').textContent  = toDisplay(dateIso || S.selectedDate);
+  document.getElementById('wo-title').value    = '';
+  document.getElementById('wo-cat').value      = 'run';
+  document.getElementById('wo-int').value      = 'moderate';
+  document.getElementById('wo-km').value       = '5';
+  document.getElementById('wo-min').value      = '45';
+  document.getElementById('wo-notes').value    = '';
+  document.getElementById('wo-hidden').checked = false;
+  document.getElementById('modal-error').style.display = 'none';
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  S._modalDate = dateIso || S.selectedDate;
+}
+
+function openEditModal() {
+  const w = S.selectedWorkout; if (!w) return;
+  S.editingId = w.id; S._modalDate = w.dateIso;
+  document.getElementById('modal-title').textContent = 'Редактировать тренировку';
+  document.getElementById('modal-date').textContent  = toDisplay(w.dateIso);
+  document.getElementById('wo-title').value    = w.title || '';
+  document.getElementById('wo-cat').value      = w.category || 'run';
+  document.getElementById('wo-int').value      = w.intensity || 'moderate';
+  document.getElementById('wo-km').value       = w.distanceKm || 0;
+  document.getElementById('wo-min').value      = w.durationMin || 0;
+  document.getElementById('wo-notes').value    = w.notes || '';
+  document.getElementById('wo-hidden').checked = !!w.hidden;
+  document.getElementById('modal-error').style.display = 'none';
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); }
+
+async function saveWorkout() {
+  const title = document.getElementById('wo-title').value.trim();
+  const errEl = document.getElementById('modal-error');
+  if (!title) { errEl.textContent='Введите название'; errEl.style.display=''; return; }
+  errEl.style.display = 'none';
+
+  const body = {
+    athlete_id:   S.selectedAthleteId,
+    date:         S._modalDate,
+    title,
+    category:     document.getElementById('wo-cat').value,
+    distance_km:  parseFloat(document.getElementById('wo-km').value) || 0,
+    duration_min: parseInt(document.getElementById('wo-min').value) || 0,
+    intensity:    document.getElementById('wo-int').value,
+    notes:        document.getElementById('wo-notes').value,
+    hidden:       document.getElementById('wo-hidden').checked,
+    intervals_json: '[]',
+  };
+
+  try {
+    if (S.editingId) {
+      await put(`/api/workouts/${S.editingId}`, body);
+      toast('✓ Тренировка обновлена');
+    } else {
+      await post('/api/workouts', body);
+      toast('✓ Тренировка создана');
+    }
+    closeModal();
+    await refreshAll();
+    if (S.editingId) await loadWorkoutDetail(S.editingId);
+  } catch (e) {
+    errEl.textContent = 'Ошибка: ' + e.message; errEl.style.display = '';
+  }
+}
+
+// ── Templates ──────────────────────────────────────────────────────────────
+function resetTplForm() {
+  S.editingTplId = null;
+  document.getElementById('editor-title').textContent = 'Новый шаблон';
+  document.getElementById('tpl-title').value = '';
+  document.getElementById('tpl-cat').value   = 'run';
+  document.getElementById('tpl-int').value   = 'moderate';
+  document.getElementById('tpl-km').value    = '10';
+  document.getElementById('tpl-min').value   = '60';
+  document.getElementById('tpl-tags').value  = '';
+  document.getElementById('tpl-notes').value = '';
+  renderTemplates();
+}
+
+function editTpl(t) {
+  S.editingTplId = t.id;
+  document.getElementById('editor-title').textContent = 'Редактировать шаблон';
+  document.getElementById('tpl-title').value  = t.title;
+  document.getElementById('tpl-cat').value    = t.category;
+  document.getElementById('tpl-int').value    = t.intensity;
+  document.getElementById('tpl-km').value     = t.distanceKm;
+  document.getElementById('tpl-min').value    = t.durationMin;
+  document.getElementById('tpl-tags').value   = t.tags || '';
+  document.getElementById('tpl-notes').value  = t.notes || '';
+  renderTemplates();
+}
+
+async function saveTpl() {
+  const title = document.getElementById('tpl-title').value.trim();
+  if (!title) { toast('Введите название шаблона'); return; }
+  const body = {
+    title, category: document.getElementById('tpl-cat').value,
+    distance_km: parseFloat(document.getElementById('tpl-km').value) || 0,
+    duration_min: parseInt(document.getElementById('tpl-min').value) || 0,
+    intensity: document.getElementById('tpl-int').value,
+    intervals_json: '[]',
+    notes: document.getElementById('tpl-notes').value,
+    tags: document.getElementById('tpl-tags').value,
+  };
+  if (S.editingTplId) {
+    await put(`/api/templates/${S.editingTplId}`, body); toast('✓ Шаблон обновлён');
+  } else {
+    await post('/api/templates', body); toast('✓ Шаблон сохранён');
+  }
+  resetTplForm();
+  await loadTemplates();
+}
+
+async function deleteTpl(id) {
+  const ok = await confirm('Удалить шаблон?', 'Это действие нельзя отменить.');
+  if (!ok) return;
+  await del(`/api/templates/${id}`);
+  if (S.editingTplId === id) resetTplForm();
+  toast('Шаблон удалён');
+  await loadTemplates();
+}
+
+async function planFromTpl(id) {
+  const date = document.getElementById('plan-date').value;
+  if (!date) { toast('Укажите дату плана'); return; }
+  await post(`/api/templates/${id}/plan`, { athlete_id: S.selectedAthleteId, date });
+  toast('✓ Тренировка добавлена в план');
+  await refreshAll();
+}
+
+// ── Add athlete ────────────────────────────────────────────────────────────
+function openAddAthlete() {
+  document.getElementById('aa-email').value = '';
+  document.getElementById('add-athlete-error').textContent = '';
+  document.getElementById('add-athlete-overlay').classList.remove('hidden');
+}
+
+function closeAddAthlete() {
+  document.getElementById('add-athlete-overlay').classList.add('hidden');
+}
+
+async function doAddAthlete() {
+  const email = document.getElementById('aa-email').value.trim();
+  const errEl = document.getElementById('add-athlete-error');
+  errEl.textContent = '';
+  if (!email) { errEl.textContent = 'Введите email атлета'; return; }
+  try {
+    const result = await post('/api/athletes/link', { athlete_email: email });
+    toast(`✓ Атлет ${result.name} добавлен`);
+    closeAddAthlete();
+    await loadAthletes();
+    S.selectedAthleteId = result.athleteId;
+    document.getElementById('athlete-sel').value = result.athleteId;
+    await refreshAll();
+  } catch (e) {
+    errEl.textContent = e.message || 'Ошибка';
+  }
+}
+
+// ── Confirm dialog ─────────────────────────────────────────────────────────
+let confirmResolve = () => {};
+function confirm(title, msg) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent   = msg;
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+  return new Promise(resolve => {
+    confirmResolve = (v) => {
+      document.getElementById('confirm-overlay').classList.add('hidden');
+      resolve(v);
+    };
+  });
+}
+
+// ── Misc ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function moodLabel(v) {
+  return { excellent:'Отлично', good:'Хорошо', normal:'Нормально', weak:'Слабость', awful:'Ужасно' }[v] || v;
+}
+
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+document.getElementById('add-athlete-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeAddAthlete();
+});
+
+// Enter key on auth forms
+document.getElementById('login-password').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('reg-password').addEventListener('keydown', e => { if(e.key==='Enter') doRegister(); });
+
+document.getElementById('plan-date').value = fmtDate(new Date());
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function initApp() {
+  updateHeader();
+  await loadAthletes();
+  if (S.athletes.length) {
+    S.selectedAthleteId = S.athletes[0].id;
+  }
+  await loadCalendar();
+  await loadDayWorkouts();
+}
+
+(async () => {
+  const savedToken = localStorage.getItem('sc_token');
+  const savedUser  = localStorage.getItem('sc_user');
+
+  if (savedToken && savedUser) {
+    try {
+      const user = JSON.parse(savedUser);
+      AUTH.token     = savedToken;
+      AUTH.userId    = user.user_id;
+      AUTH.userRole  = user.role;
+      AUTH.userName  = user.name;
+      AUTH.athleteId = user.athlete_id;
+
+      // Verify token is still valid
+      await get('/api/auth/me');
+      hideAuthOverlay();
+      await initApp();
+    } catch {
+      clearAuth();
+      showAuthOverlay();
+    }
+  } else {
+    showAuthOverlay();
+  }
+})();
+</script>
+</body>
+</html>
