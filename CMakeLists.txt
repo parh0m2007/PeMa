@@ -16,7 +16,7 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS
   Qml
   Quick
   QuickControls2
-  Sql
+  Network
 )
 
 qt_standard_project_setup()
@@ -35,7 +35,7 @@ target_link_libraries(QtCalendarApp PRIVATE
   Qt6::Qml
   Qt6::Quick
   Qt6::QuickControls2
-  Qt6::Sql
+  Qt6::Network
 )
 
 set_target_properties(QtCalendarApp PROPERTIES

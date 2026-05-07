@@ -2,7 +2,9 @@
     <qresource prefix="/">
         <file alias="qml/main.qml">../src/ui/qml/main.qml</file>
         <file alias="qml/components/ErrorBanner.qml">../src/ui/qml/components/ErrorBanner.qml</file>
+        <file alias="qml/components/AuthScreen.qml">../src/ui/qml/components/AuthScreen.qml</file>
         <file alias="qml/components/CreateWorkoutPopup.qml">../src/ui/qml/components/CreateWorkoutPopup.qml</file>
+        <file alias="qml/components/BodyPainMap.qml">../src/ui/qml/components/BodyPainMap.qml</file>
     </qresource>
 </RCC>
 

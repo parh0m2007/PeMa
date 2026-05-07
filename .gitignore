@@ -1,0 +1,13 @@
+build-local/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+*.o
+*.a
+*.so
+.DS_Store
+*.user
+.qmake.stash
