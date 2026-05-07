@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import "components"
+import "."
 
 ApplicationWindow {
     id: root
@@ -767,7 +768,7 @@ ApplicationWindow {
                                     // Actual data block — shown when workout was imported from watch
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        visible: !!root.selectedWorkoutObj.actualDistance
+                                        visible: !!root.selectedWorkoutObj.actualDistanceKm
                                         height: visible ? actualCol.implicitHeight + 20 : 0
                                         radius: 10
                                         color: dark ? "#0d2518" : "#f0fdf4"
@@ -789,12 +790,16 @@ ApplicationWindow {
                                                         var s = root.selectedWorkoutObj
                                                         if (!s.id) return []
                                                         var chips = []
-                                                        if (s.actualDistance) chips.push({ v: s.actualDistance + " км", c: runColor })
-                                                        if (s.actualDuration) chips.push({ v: s.actualDuration + " мин", c: accent })
-                                                        if (s.actualAvgPace) chips.push({ v: s.actualAvgPace + " мин/км", c: swimColor })
-                                                        if (s.actualAvgHr)   chips.push({ v: s.actualAvgHr + " уд/мин", c: hardColor })
-                                                        if (s.actualMaxHr)   chips.push({ v: "max " + s.actualMaxHr + " уд/мин", c: hardColor })
-                                                        if (s.actualElevationGain) chips.push({ v: "+" + s.actualElevationGain + " м", c: moderateColor })
+                                                        if (s.actualDistanceKm)    chips.push({ v: Number(s.actualDistanceKm).toFixed(2) + " км",   c: runColor })
+                                                        if (s.actualDurationMin)   chips.push({ v: s.actualDurationMin + " мин",                    c: accent })
+                                                        if (s.actualAvgPace) {
+                                                            var p = s.actualAvgPace
+                                                            var pm = Math.floor(p); var ps = Math.round((p - pm) * 60)
+                                                            chips.push({ v: pm + ":" + (ps < 10 ? "0" : "") + ps + " /км", c: swimColor })
+                                                        }
+                                                        if (s.actualAvgHr)         chips.push({ v: s.actualAvgHr + " уд/мин",           c: hardColor })
+                                                        if (s.actualMaxHr)         chips.push({ v: "max " + s.actualMaxHr + " уд/мин",   c: hardColor })
+                                                        if (s.actualElevationGain) chips.push({ v: "+" + Math.round(s.actualElevationGain) + " м", c: moderateColor })
                                                         return chips
                                                     }
                                                     delegate: Rectangle {
@@ -1385,26 +1390,31 @@ ApplicationWindow {
                     }
                 }
 
-                // ── TAB 3: Маршрут (placeholder until Phase D) ─────────────────
-                Rectangle {
-                    color: bg
-                    ColumnLayout {
-                        anchors.centerIn: parent
-                        spacing: 14
-                        Label {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: "🗺️"; font.pixelSize: 64
-                        }
-                        Label {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: "Маршрут — скоро"
-                            font.pixelSize: 22; font.weight: Font.Black; color: textPrimary
-                        }
-                        Label {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: "ИИ-генерация беговых маршрутов на карте OpenStreetMap"
-                            font.pixelSize: 13; color: textMuted
-                        }
+                // ── TAB 3: Маршрут ────────────────────────────────────────────
+                RouteTab {
+                    bg:          root.bg
+                    surface:     root.surface
+                    surface2:    root.surface2
+                    borderCol:   root.border
+                    textPrimary: root.textPrimary
+                    textMuted:   root.textMuted
+                    accent:      root.accent
+                    runColor:    root.runColor
+                    hardColor:   root.hardColor
+                    dark:        root.dark
+
+                    routesModel:  workoutStore.routes
+                    isBusy:       workoutStore.busy
+                    hasOpenAiKey: workoutStore.hasOpenAiKey
+
+                    onGenerateRequested: function(lat, lon, distKm, prefs) {
+                        workoutStore.generateRoute(lat, lon, distKm, prefs)
+                    }
+                    onDeleteRouteRequested: function(id) {
+                        workoutStore.deleteRoute(id)
+                    }
+                    onOpenAiKeyRequested: {
+                        openAiKeyDlg.open()
                     }
                 }
             }
@@ -1427,6 +1437,17 @@ ApplicationWindow {
                 workoutStore.importWatchFile(watchImportDialog.workoutId, path)
             }
         }
+    }
+
+    // ── OpenAI key dialog ────────────────────────────────────────────────────
+    OpenAiKeyDialog {
+        id: openAiKeyDlg
+        textMuted:   root.textMuted
+        accent:      root.accent
+        surface2:    root.surface2
+        borderCol:   root.border
+        hasKey:      workoutStore.hasOpenAiKey
+        onKeySet: function(key) { workoutStore.setOpenAiKey(key) }
     }
 
     // ── Goal creation dialog ─────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/">
         <file alias="qml/main.qml">../src/ui/qml/main.qml</file>
+        <file alias="qml/RouteTab.qml">../src/ui/qml/RouteTab.qml</file>
         <file alias="qml/components/ErrorBanner.qml">../src/ui/qml/components/ErrorBanner.qml</file>
         <file alias="qml/components/AuthScreen.qml">../src/ui/qml/components/AuthScreen.qml</file>
         <file alias="qml/components/CreateWorkoutPopup.qml">../src/ui/qml/components/CreateWorkoutPopup.qml</file>
@@ -8,5 +9,6 @@
         <file alias="qml/components/GoalDialog.qml">../src/ui/qml/components/GoalDialog.qml</file>
         <file alias="qml/components/GoalsList.qml">../src/ui/qml/components/GoalsList.qml</file>
         <file alias="qml/components/AnalyticsCharts.qml">../src/ui/qml/components/AnalyticsCharts.qml</file>
+        <file alias="qml/components/OpenAiKeyDialog.qml">../src/ui/qml/components/OpenAiKeyDialog.qml</file>
     </qresource>
 </RCC>

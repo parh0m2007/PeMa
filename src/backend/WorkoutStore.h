@@ -39,6 +39,8 @@ class WorkoutStore : public QObject
     Q_PROPERTY(QString      analyticsPeriod        READ analyticsPeriod
                WRITE setAnalyticsPeriod            NOTIFY analyticsPeriodChanged)
     Q_PROPERTY(QVariantList goals                  READ goals                  NOTIFY goalsChanged)
+    Q_PROPERTY(QVariantList routes                 READ routes                 NOTIFY routesChanged)
+    Q_PROPERTY(bool         hasOpenAiKey           READ hasOpenAiKey           NOTIFY openAiKeyChanged)
     Q_PROPERTY(QVariantList templateLibrary        READ templateLibrary        NOTIFY templatesChanged)
     Q_PROPERTY(bool         createDialogOpen       READ createDialogOpen
                WRITE setCreateDialogOpen           NOTIFY createDialogOpenChanged)
@@ -76,6 +78,8 @@ public:
     QString      analyticsPeriod()     const { return m_analyticsPeriod; }
     void         setAnalyticsPeriod(const QString &p);
     QVariantList goals()               const { return m_goals; }
+    QVariantList routes()              const { return m_routes; }
+    bool         hasOpenAiKey()        const { return m_hasOpenAiKey; }
     QVariantList templateLibrary()     const { return m_templateLibrary; }
     bool         createDialogOpen()    const { return m_createDialogOpen; }
     void         setCreateDialogOpen(bool open);
@@ -163,6 +167,12 @@ public:
     Q_INVOKABLE bool importWatchFile(const QString &workoutId,
                                      const QString &localPath);
 
+    // ── Routes ────────────────────────────────────────────────────────────────
+    Q_INVOKABLE void generateRoute(double lat, double lon,
+                                   double distanceKm, const QString &preferences);
+    Q_INVOKABLE void deleteRoute(const QString &routeId);
+    Q_INVOKABLE void setOpenAiKey(const QString &key);
+
 signals:
     // Auth
     void loginStateChanged();
@@ -185,6 +195,8 @@ signals:
     void analyticsChanged();
     void analyticsPeriodChanged();
     void goalsChanged();
+    void routesChanged();
+    void openAiKeyChanged();
     void templatesChanged();
     void createDialogOpenChanged();
     void draftChanged();
@@ -215,6 +227,8 @@ private:
     void fetchAnalytics();
     void fetchAthletes();
     void fetchGoals();
+    void fetchRoutes();
+    void fetchOpenAiKeyStatus();
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     void setError(const QString &message);
@@ -245,6 +259,9 @@ private:
     QVariantMap  m_analyticsSummary;
     QString      m_analyticsPeriod = QStringLiteral("all");
     QVariantList m_goals;
+    QVariantList m_routes;
+    bool         m_hasOpenAiKey = false;
+    QString      m_routeGenerating; // id of currently generating route ("" when idle)
     QVariantList m_templateLibrary;
 
     // ── UI state ──────────────────────────────────────────────────────────────

@@ -69,6 +69,7 @@ class UserDB(Base):
     password_hash = Column(String, nullable=False)
     athlete_id = Column(String, ForeignKey("athletes.id"), nullable=True)
     created_at = Column(String, nullable=False)
+    openai_key = Column(String, nullable=True)     # user-provided OpenAI API key
 
 
 class AthleteDB(Base):
@@ -124,6 +125,20 @@ class GoalDB(Base):
     target_unit   = Column(String, nullable=True)             # km | kg | runs
     created_at    = Column(String, nullable=False)
     completed_at  = Column(String, nullable=True)
+
+
+class RouteDB(Base):
+    """AI-generated running routes saved by a user."""
+    __tablename__ = "routes"
+    id          = Column(String, primary_key=True)
+    user_id     = Column(String, ForeignKey("users.id"), nullable=False)
+    name        = Column(String, nullable=False)
+    distance_km = Column(Float, nullable=True)
+    geojson     = Column(Text, nullable=True)      # GeoJSON LineString
+    description = Column(Text, nullable=True)      # AI description
+    start_lat   = Column(Float, nullable=True)
+    start_lon   = Column(Float, nullable=True)
+    created_at  = Column(String, nullable=False)
 
 
 class CommentDB(Base):
@@ -432,11 +447,19 @@ def _migrate_schema():
         "route_geojson":         "TEXT",
         "source_file":           "TEXT",
     }
+    new_user_cols = {
+        "openai_key": "TEXT",
+    }
     with engine.begin() as conn:
-        existing = {row[1] for row in conn.execute(text("PRAGMA table_info(workouts)"))}
+        existing_w = {row[1] for row in conn.execute(text("PRAGMA table_info(workouts)"))}
         for col, sql_type in new_workout_cols.items():
-            if col not in existing:
+            if col not in existing_w:
                 conn.execute(text(f"ALTER TABLE workouts ADD COLUMN {col} {sql_type}"))
+
+        existing_u = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
+        for col, sql_type in new_user_cols.items():
+            if col not in existing_u:
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {sql_type}"))
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -1286,3 +1309,184 @@ def _get_workout_or_404(workout_id: str, db: Session) -> WorkoutDB:
     if not w:
         raise HTTPException(404, "Тренировка не найдена")
     return w
+
+
+# ─── Routes ───────────────────────────────────────────────────────────────────
+
+class RouteGenerateRequest(BaseModel):
+    start_lat: float
+    start_lon: float
+    distance_km: float
+    preferences: str = ""
+
+
+class OpenAiKeyRequest(BaseModel):
+    key: str
+
+
+def _route_to_dict(r: RouteDB) -> dict:
+    return {
+        "id":          r.id,
+        "name":        r.name,
+        "distanceKm":  r.distance_km,
+        "geojson":     r.geojson,
+        "description": r.description,
+        "startLat":    r.start_lat,
+        "startLon":    r.start_lon,
+        "createdAt":   r.created_at,
+    }
+
+
+@app.get("/api/routes")
+def get_routes(
+    current_user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    routes = db.query(RouteDB).filter(RouteDB.user_id == current_user.id).all()
+    return [_route_to_dict(r) for r in routes]
+
+
+@app.delete("/api/routes/{route_id}", status_code=204)
+def delete_route(
+    route_id: str,
+    current_user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    r = db.query(RouteDB).filter(RouteDB.id == route_id, RouteDB.user_id == current_user.id).first()
+    if not r:
+        raise HTTPException(404, "Маршрут не найден")
+    db.delete(r)
+    db.commit()
+
+
+@app.put("/api/auth/openai-key", status_code=204)
+def set_openai_key(
+    data: OpenAiKeyRequest,
+    current_user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Store user's OpenAI API key (plaintext — user owns the key)."""
+    current_user.openai_key = data.key.strip()
+    db.commit()
+
+
+@app.get("/api/auth/openai-key")
+def get_openai_key_status(
+    current_user: UserDB = Depends(get_current_user),
+):
+    """Returns whether the user has an OpenAI key set (not the key itself)."""
+    return {"hasKey": bool(current_user.openai_key)}
+
+
+@app.post("/api/routes/generate")
+def generate_route(
+    data: RouteGenerateRequest,
+    current_user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Generate a running route via OpenAI + snap to real roads via OSRM.
+    Falls back to a straight-line approximation if OSRM is unavailable.
+    """
+    import httpx
+
+    openai_key = current_user.openai_key
+    if not openai_key:
+        raise HTTPException(400, "OpenAI API ключ не задан. Добавьте его в настройках.")
+
+    # ── Step 1: Ask OpenAI for waypoints ────────────────────────────────────────
+    prompt = (
+        f"Ты помощник для бегунов. Сгенерируй круговой маршрут для бега.\n"
+        f"Старт и финиш: lat={data.start_lat:.5f}, lon={data.start_lon:.5f}\n"
+        f"Желаемая длина: {data.distance_km:.1f} км\n"
+        f"Предпочтения: {data.preferences or 'парки, тихие улицы'}\n\n"
+        f"Верни ТОЛЬКО JSON (без markdown) в формате:\n"
+        f'{{\"name\": \"Название маршрута\", \"description\": \"Описание 2-3 предложения\", '
+        f'\"waypoints\": [[lon,lat], [lon,lat], ..., [lon,lat]]}}\n'
+        f"Маршрут должен начинаться и заканчиваться в стартовой точке. "
+        f"Используй реальные координаты в радиусе {data.distance_km / 2:.1f} км от старта."
+    )
+
+    try:
+        with httpx.Client(timeout=30) as client:
+            resp = client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {openai_key}"},
+                json={
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 800,
+                    "temperature": 0.7,
+                },
+            )
+        if resp.status_code == 401:
+            raise HTTPException(400, "Неверный OpenAI API ключ")
+        if resp.status_code != 200:
+            raise HTTPException(502, f"OpenAI error {resp.status_code}: {resp.text[:200]}")
+
+        content = resp.json()["choices"][0]["message"]["content"].strip()
+        # Strip markdown code blocks if present
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        ai_data = json.loads(content)
+    except (json.JSONDecodeError, KeyError) as e:
+        raise HTTPException(502, f"Не удалось разобрать ответ ИИ: {e}")
+    except httpx.RequestError as e:
+        raise HTTPException(502, f"Ошибка сети при запросе к OpenAI: {e}")
+
+    waypoints: list = ai_data.get("waypoints", [])
+    route_name: str = ai_data.get("name", "Маршрут")
+    description: str = ai_data.get("description", "")
+
+    if not waypoints or len(waypoints) < 2:
+        raise HTTPException(502, "ИИ не вернул корректные точки маршрута")
+
+    # ── Step 2: Snap to road network via OSRM ───────────────────────────────────
+    coords_str = ";".join(f"{p[0]},{p[1]}" for p in waypoints)
+    geojson_coords = waypoints  # fallback: straight line
+
+    try:
+        with httpx.Client(timeout=15) as client:
+            osrm_url = (
+                f"http://router.project-osrm.org/route/v1/foot/{coords_str}"
+                f"?overview=full&geometries=geojson"
+            )
+            osrm_resp = client.get(osrm_url)
+        if osrm_resp.status_code == 200:
+            osrm_data = osrm_resp.json()
+            routes = osrm_data.get("routes", [])
+            if routes:
+                geojson_coords = routes[0]["geometry"]["coordinates"]
+                # Calculate actual distance from OSRM
+                actual_dist = routes[0].get("distance", 0) / 1000.0  # metres → km
+            else:
+                actual_dist = data.distance_km
+        else:
+            actual_dist = data.distance_km
+    except Exception:
+        actual_dist = data.distance_km  # OSRM unavailable → use AI estimate
+
+    geojson = json.dumps({
+        "type": "LineString",
+        "coordinates": geojson_coords,
+    })
+
+    # ── Step 3: Persist route ────────────────────────────────────────────────────
+    route = RouteDB(
+        id=new_id(),
+        user_id=current_user.id,
+        name=route_name,
+        distance_km=round(actual_dist, 2),
+        geojson=geojson,
+        description=description,
+        start_lat=data.start_lat,
+        start_lon=data.start_lon,
+        created_at=datetime.utcnow().isoformat(),
+    )
+    db.add(route)
+    db.commit()
+    db.refresh(route)
+
+    return _route_to_dict(route)

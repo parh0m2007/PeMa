@@ -255,6 +255,8 @@ void WorkoutStore::initialLoad()
     fetchAthletes();    // also calls fetchDayWorkouts + fetchAnalytics internally
     fetchCalendar();
     fetchTemplates();
+    fetchRoutes();
+    fetchOpenAiKeyStatus();
 }
 
 // ─── HTTP layer ───────────────────────────────────────────────────────────────
@@ -1048,6 +1050,68 @@ bool WorkoutStore::importWatchFile(const QString &workoutId, const QString &loca
     fetchCalendar();
     fetchAnalytics();
     return true;
+}
+
+// ─── Routes ──────────────────────────────────────────────────────────────────
+
+void WorkoutStore::fetchRoutes()
+{
+    httpAsync(QStringLiteral("/api/routes"), [this](const QJsonDocument &doc) {
+        if (!doc.isArray()) return;
+        const QJsonArray arr = doc.array();
+        QVariantList list;
+        for (const auto &v : arr) list.append(v.toObject().toVariantMap());
+        m_routes = list;
+        emit routesChanged();
+    });
+}
+
+void WorkoutStore::fetchOpenAiKeyStatus()
+{
+    httpAsync(QStringLiteral("/api/auth/openai-key"), [this](const QJsonDocument &doc) {
+        if (!doc.isObject()) return;
+        bool hasKey = doc.object().value(QStringLiteral("hasKey")).toBool(false);
+        if (hasKey != m_hasOpenAiKey) {
+            m_hasOpenAiKey = hasKey;
+            emit openAiKeyChanged();
+        }
+    });
+}
+
+void WorkoutStore::setOpenAiKey(const QString &key)
+{
+    QJsonObject body;
+    body[QStringLiteral("key")] = key;
+    const auto doc = httpSync(QStringLiteral("PUT"), QStringLiteral("/api/auth/openai-key"), body);
+    Q_UNUSED(doc);
+    m_hasOpenAiKey = !key.trimmed().isEmpty();
+    emit openAiKeyChanged();
+}
+
+void WorkoutStore::generateRoute(double lat, double lon,
+                                  double distanceKm, const QString &preferences)
+{
+    QJsonObject body;
+    body[QStringLiteral("start_lat")]    = lat;
+    body[QStringLiteral("start_lon")]    = lon;
+    body[QStringLiteral("distance_km")]  = distanceKm;
+    body[QStringLiteral("preferences")]  = preferences;
+
+    setBusy(true);
+    QTimer::singleShot(0, this, [this, body]() {
+        const auto doc = httpSync(QStringLiteral("POST"), QStringLiteral("/api/routes/generate"), body);
+        setBusy(false);
+        if (doc.isNull()) return;  // error already set
+        fetchRoutes();
+    });
+}
+
+void WorkoutStore::deleteRoute(const QString &routeId)
+{
+    const auto doc = httpSync(QStringLiteral("DELETE"),
+                              QStringLiteral("/api/routes/") + routeId);
+    Q_UNUSED(doc);
+    fetchRoutes();
 }
 
 void WorkoutStore::setError(const QString &message)
