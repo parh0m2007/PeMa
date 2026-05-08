@@ -10,5 +10,7 @@
         <file alias="qml/components/GoalsList.qml">../src/ui/qml/components/GoalsList.qml</file>
         <file alias="qml/components/AnalyticsCharts.qml">../src/ui/qml/components/AnalyticsCharts.qml</file>
         <file alias="qml/components/OpenAiKeyDialog.qml">../src/ui/qml/components/OpenAiKeyDialog.qml</file>
+        <file alias="qml/components/TileMap.qml">../src/ui/qml/components/TileMap.qml</file>
+        <file alias="qml/components/SettingsPanel.qml">../src/ui/qml/components/SettingsPanel.qml</file>
     </qresource>
 </RCC>

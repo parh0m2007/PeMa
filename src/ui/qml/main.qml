@@ -361,6 +361,12 @@ ApplicationWindow {
 
                 RoundButton {
                     width: 32; height: 32; radius: 8; flat: true
+                    text: "⚙"; font.pixelSize: 16
+                    onClicked: settingsPanel.toggle()
+                    ToolTip.text: "Настройки"; ToolTip.visible: hovered; ToolTip.delay: 500
+                }
+                RoundButton {
+                    width: 32; height: 32; radius: 8; flat: true
                     text: themeIcon(); font.pixelSize: 15
                     onClicked: nextTheme()
                     ToolTip.text: "Сменить тему"; ToolTip.visible: hovered; ToolTip.delay: 500
@@ -1066,326 +1072,236 @@ ApplicationWindow {
                     }
                 }
 
-                // ── TAB 2: Analytics ───────────────────────────────────────────
-                Rectangle {
-                    color: bg
-
-                    ScrollView {
+                // ── TAB 2: Analytics — minimalist redesign ─────────────────
+                Item {
+                    // Two-column layout: stats left, charts right
+                    RowLayout {
                         anchors.fill: parent
-                        contentWidth: availableWidth
-                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                        spacing: 0
 
-                        ColumnLayout {
-                            width: parent.width
-                            anchors { leftMargin: 24; rightMargin: 24; topMargin: 20 }
-                            spacing: 16
-
-                            // Header row: title + period switcher
-                            RowLayout {
-                                Layout.fillWidth: true; Layout.leftMargin: 24; Layout.rightMargin: 24
-                                spacing: 12
-
-                                Label {
-                                    text: "Аналитика"
-                                    font.pixelSize: 20; font.weight: Font.Black
-                                    color: textPrimary; font.letterSpacing: -0.5
-                                }
-                                Label {
-                                    text: workoutStore.selectedAthleteName
-                                    font.pixelSize: 13; color: textMuted
-                                    Layout.alignment: Qt.AlignBottom; bottomPadding: 2
-                                }
-                                Item { Layout.fillWidth: true }
-
-                                // Period buttons
-                                Row {
-                                    spacing: 4
-                                    Repeater {
-                                        model: [
-                                            { label: "30д",  value: "30d"  },
-                                            { label: "90д",  value: "90d"  },
-                                            { label: "Год",  value: "year" },
-                                            { label: "Всё",  value: "all"  },
-                                        ]
-                                        delegate: Rectangle {
-                                            width: pLbl.implicitWidth + 18; height: 28; radius: 8
-                                            color: workoutStore.analyticsPeriod === modelData.value
-                                                   ? accent : surface2
-                                            border.width: 1
-                                            border.color: workoutStore.analyticsPeriod === modelData.value
-                                                          ? accent : border
-                                            Label {
-                                                id: pLbl; anchors.centerIn: parent
-                                                text: modelData.label
-                                                font.pixelSize: 12; font.weight: Font.DemiBold
-                                                color: workoutStore.analyticsPeriod === modelData.value
-                                                       ? "#fff" : textMuted
-                                            }
-                                            MouseArea {
-                                                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                                onClicked: workoutStore.analyticsPeriod = modelData.value
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Metric toggle
-                                Row {
-                                    spacing: 4
-                                    Repeater {
-                                        model: [
-                                            { label: "км",    value: "distance" },
-                                            { label: "мин",   value: "duration" },
-                                            { label: "трен.", value: "count"    },
-                                        ]
-                                        delegate: Rectangle {
-                                            width: mLbl.implicitWidth + 14; height: 28; radius: 8
-                                            color: root.analyticsMetric === modelData.value
-                                                   ? surface : "transparent"
-                                            border.width: 1
-                                            border.color: root.analyticsMetric === modelData.value
-                                                          ? border : "transparent"
-                                            Label {
-                                                id: mLbl; anchors.centerIn: parent
-                                                text: modelData.label
-                                                font.pixelSize: 11
-                                                color: root.analyticsMetric === modelData.value
-                                                       ? textPrimary : textMuted
-                                            }
-                                            MouseArea {
-                                                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.analyticsMetric = modelData.value
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // KPI row
-                            RowLayout {
-                                Layout.fillWidth: true; Layout.leftMargin: 24; Layout.rightMargin: 24
-                                spacing: 12
-                                Repeater {
-                                    model: [
-                                        { label: "ВЫПОЛНЕНО",  value: String(root.analyticsObj.workoutsCount || 0),
-                                          color: accent,     icon: "📊" },
-                                        { label: "МИНУТ",      value: String(root.analyticsObj.durationTotal || 0),
-                                          color: bikeColor,  icon: "⏱" },
-                                        { label: "КИЛОМЕТРОВ", value: Number(root.analyticsObj.distanceTotal || 0).toFixed(1),
-                                          color: runColor,   icon: "📏" },
-                                        { label: "ВЫПОЛНЕНИЕ", value: Math.round((root.analyticsObj.completionRate || 0) * 100) + "%",
-                                          color: swimColor,  icon: "✓" },
-                                    ]
-                                    delegate: Rectangle {
-                                        Layout.fillWidth: true; height: 96; radius: 12
-                                        color: surface; border.width: 1; border.color: border
-                                        clip: true
-                                        Rectangle {
-                                            anchors { top: parent.top; left: parent.left; right: parent.right; margins: 1 }
-                                            height: 4; topLeftRadius: 11; topRightRadius: 11
-                                            color: modelData.color
-                                        }
-                                        Column {
-                                            anchors { fill: parent; margins: 14; topMargin: 12 }
-                                            spacing: 4
-                                            Label { text: modelData.icon + "  " + modelData.label; font.pixelSize: 9; font.weight: Font.Black; color: textMuted; font.letterSpacing: 1 }
-                                            Label { text: modelData.value; font.pixelSize: 28; font.weight: Font.Black; color: modelData.color; font.letterSpacing: -1 }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Streak + pace row
-                            RowLayout {
-                                Layout.fillWidth: true; Layout.leftMargin: 24; Layout.rightMargin: 24
-                                spacing: 12
-
-                                // Streak card
-                                Rectangle {
-                                    Layout.fillWidth: true; height: 72; radius: 12
-                                    color: surface; border.width: 1; border.color: border
-                                    RowLayout {
-                                        anchors { fill: parent; margins: 14 }
-                                        spacing: 10
-                                        Label { text: "🔥"; font.pixelSize: 28 }
-                                        ColumnLayout {
-                                            spacing: 2
-                                            Label { text: "СЕРИЯ"; font.pixelSize: 9; font.weight: Font.Black; color: textMuted; font.letterSpacing: 1 }
-                                            Label {
-                                                text: (root.analyticsObj.currentStreak || 0) + " дн."
-                                                font.pixelSize: 22; font.weight: Font.Black; color: energy
-                                            }
-                                        }
-                                        Item { Layout.fillWidth: true }
-                                        ColumnLayout {
-                                            spacing: 2; Layout.alignment: Qt.AlignRight
-                                            Label { text: "РЕКОРД"; font.pixelSize: 9; font.weight: Font.Black; color: textMuted; font.letterSpacing: 1 }
-                                            Label { text: (root.analyticsObj.longestStreak || 0) + " дн."; font.pixelSize: 14; color: textMuted }
-                                        }
-                                    }
-                                }
-
-                                // Pace card
-                                Rectangle {
-                                    Layout.fillWidth: true; height: 72; radius: 12
-                                    color: surface; border.width: 1; border.color: border
-                                    visible: !!root.analyticsObj.avgPaceMinPerKm
-                                    RowLayout {
-                                        anchors { fill: parent; margins: 14 }
-                                        spacing: 10
-                                        Label { text: "⚡"; font.pixelSize: 24 }
-                                        ColumnLayout {
-                                            spacing: 2
-                                            Label { text: "СРЕДНИЙ ТЕМП"; font.pixelSize: 9; font.weight: Font.Black; color: textMuted; font.letterSpacing: 1 }
-                                            Label {
-                                                text: {
-                                                    var p = root.analyticsObj.avgPaceMinPerKm || 0
-                                                    var m = Math.floor(p); var s = Math.round((p - m) * 60)
-                                                    return m + ":" + (s < 10 ? "0" : "") + s + " /км"
-                                                }
-                                                font.pixelSize: 18; font.weight: Font.Black; color: accent
-                                            }
-                                        }
-                                        Item { Layout.fillWidth: true }
-                                        ColumnLayout {
-                                            spacing: 2; visible: !!root.analyticsObj.avgHrBpm
-                                            Label { text: "ПУЛЬС"; font.pixelSize: 9; font.weight: Font.Black; color: textMuted; font.letterSpacing: 1 }
-                                            Label { text: (root.analyticsObj.avgHrBpm || "—") + " уд/м"; font.pixelSize: 14; color: hardColor }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Charts
-                            AnalyticsCharts {
-                                Layout.fillWidth: true; Layout.leftMargin: 24; Layout.rightMargin: 24
-                                surface:     root.surface
-                                surface2:    root.surface2
-                                borderCol:   root.border
-                                textPrimary: root.textPrimary
-                                textMuted:   root.textMuted
-                                accent:      root.accent
-                                runColor:    root.runColor
-                                dark:        root.dark
-                                weeklyVolume:  root.analyticsObj.weeklyVolume  || []
-                                monthlyVolume: root.analyticsObj.monthlyVolume || []
-                                metric:        root.analyticsMetric
-                            }
-
-                            // Intensity breakdown
+                        // ── Left column: numbers + goals ─────────────────────────
+                        Rectangle {
+                            Layout.preferredWidth: 320; Layout.fillHeight: true
+                            color: surface
                             Rectangle {
-                                Layout.fillWidth: true; Layout.leftMargin: 24; Layout.rightMargin: 24
-                                height: 110; radius: 12
-                                color: surface; border.width: 1; border.color: border
+                                anchors { top: parent.top; right: parent.right; bottom: parent.bottom }
+                                width: 1; color: border
+                            }
+
+                            ScrollView {
+                                anchors.fill: parent; contentWidth: availableWidth
+                                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
                                 ColumnLayout {
-                                    anchors { fill: parent; margins: 14 }
-                                    spacing: 10
-                                    Label { text: "ИНТЕНСИВНОСТЬ"; font.pixelSize: 10; font.weight: Font.Black; color: textMuted; font.letterSpacing: 1 }
-                                    RowLayout {
-                                        spacing: 16
+                                    width: parent.width; spacing: 0
+
+                                    // Header + period
+                                    Rectangle {
+                                        Layout.fillWidth: true; height: 58; color: "transparent"
+                                        RowLayout {
+                                            anchors { fill: parent; leftMargin: 20; rightMargin: 16; topMargin: 12; bottomMargin: 8 }
+                                            ColumnLayout {
+                                                spacing: 1; Layout.fillWidth: true
+                                                Label { text: "Аналитика"; font.pixelSize: 16; font.weight: Font.Black; color: textPrimary; font.letterSpacing: -0.3 }
+                                                Label { text: workoutStore.selectedAthleteName; font.pixelSize: 11; color: textMuted }
+                                            }
+                                        }
+                                    }
+
+                                    // Period buttons row
+                                    Rectangle {
+                                        Layout.fillWidth: true; height: 40; color: "transparent"
+                                        Row {
+                                            anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; leftMargin: 20; rightMargin: 16 }
+                                            spacing: 6
+                                            Repeater {
+                                                model: [{ l:"30д",v:"30d"},{ l:"90д",v:"90d"},{ l:"Год",v:"year"},{ l:"Всё",v:"all"}]
+                                                Rectangle {
+                                                    width: periodLbl.implicitWidth + 14; height: 26; radius: 6
+                                                    color: workoutStore.analyticsPeriod === modelData.v ? accent : "transparent"
+                                                    Label { id: periodLbl; anchors.centerIn: parent; text: modelData.l; font.pixelSize: 11; font.weight: Font.DemiBold
+                                                            color: workoutStore.analyticsPeriod === modelData.v ? "#fff" : textMuted }
+                                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: workoutStore.analyticsPeriod = modelData.v }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle { Layout.fillWidth: true; height: 1; color: border }
+
+                                    // ── Key numbers (clean table style) ──────────
+                                    ColumnLayout {
+                                        Layout.fillWidth: true; Layout.leftMargin: 20; Layout.rightMargin: 20; Layout.topMargin: 16; spacing: 0
+
                                         Repeater {
                                             model: [
-                                                { label: "ЛЕГКО",    key: "easy",     color: easyColor    },
-                                                { label: "УМЕРЕННО", key: "moderate", color: moderateColor },
-                                                { label: "ТЯЖЕЛО",   key: "hard",     color: hardColor    },
+                                                { label: "Тренировок выполнено", value: String(root.analyticsObj.workoutsCount || 0), sub: "" },
+                                                { label: "Километров", value: Number(root.analyticsObj.distanceTotal || 0).toFixed(1), sub: "" },
+                                                { label: "Минут", value: String(root.analyticsObj.durationTotal || 0), sub: "" },
+                                                { label: "Выполнение плана", value: Math.round((root.analyticsObj.completionRate || 0) * 100) + "%", sub: "" },
+                                                { label: "Серия подряд", value: String(root.analyticsObj.currentStreak || 0) + " дн.", sub: "рекорд " + (root.analyticsObj.longestStreak || 0) + " дн." },
+                                                { label: "Средний темп", value: root.analyticsObj.avgPaceMinPerKm ?
+                                                    (function(){ var p=root.analyticsObj.avgPaceMinPerKm||0; var m=Math.floor(p); var s=Math.round((p-m)*60); return m+":"+(s<10?"0":"")+s+" /км" })()
+                                                    : "—", sub: root.analyticsObj.avgHrBpm ? (root.analyticsObj.avgHrBpm + " уд/мин") : "" },
                                             ]
-                                            delegate: ColumnLayout {
-                                                spacing: 4
-                                                property int val: (root.analyticsObj.byIntensity && root.analyticsObj.byIntensity[modelData.key]) || 0
-                                                property int total: Math.max(1, root.analyticsObj.workoutsCount || 1)
-                                                Label { text: modelData.label; font.pixelSize: 10; font.weight: Font.Black; color: modelData.color; font.letterSpacing: 0.8 }
-                                                RowLayout { spacing: 8
-                                                    Rectangle {
-                                                        width: 120; height: 6; radius: 3; color: border
-                                                        Rectangle {
-                                                            width: parent.width * (val / total); height: parent.height
-                                                            radius: 3; color: modelData.color
-                                                            Behavior on width { NumberAnimation { duration: 400 } }
-                                                        }
+                                            delegate: Rectangle {
+                                                Layout.fillWidth: true; height: 50
+                                                color: "transparent"
+                                                // Bottom separator
+                                                Rectangle {
+                                                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                                                    height: 1; color: border; opacity: 0.6
+                                                }
+                                                RowLayout {
+                                                    anchors { fill: parent; topMargin: 8; bottomMargin: 8 }
+                                                    ColumnLayout {
+                                                        Layout.fillWidth: true; spacing: 2
+                                                        Label { text: modelData.label; font.pixelSize: 12; color: textMuted }
+                                                        Label { text: modelData.sub; font.pixelSize: 10; color: textMuted; visible: modelData.sub !== "" }
                                                     }
-                                                    Label { text: String(val); font.pixelSize: 13; font.weight: Font.Bold; color: modelData.color }
+                                                    Label { text: modelData.value; font.pixelSize: 20; font.weight: Font.Black; color: textPrimary; font.letterSpacing: -0.5 }
                                                 }
                                             }
                                         }
                                     }
-                                }
-                            }
 
-                            // Goals section
-                            ColumnLayout {
-                                Layout.fillWidth: true; Layout.leftMargin: 24; Layout.rightMargin: 24
-                                spacing: 10
+                                    Item { height: 16 }
+                                    Rectangle { Layout.fillWidth: true; height: 1; color: border }
 
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    Label {
-                                        text: "ЦЕЛИ"
-                                        font.pixelSize: 10; font.weight: Font.Black
-                                        color: textMuted; font.letterSpacing: 1
+                                    // ── Intensity bars ────────────────────────────
+                                    ColumnLayout {
+                                        Layout.fillWidth: true; Layout.leftMargin: 20; Layout.rightMargin: 20; Layout.topMargin: 14; spacing: 12
+
+                                        Label { text: "Интенсивность"; font.pixelSize: 11; font.weight: Font.Black; color: textMuted; font.letterSpacing: 0.8 }
+
+                                        Repeater {
+                                            model: [
+                                                { label: "Легко",    key: "easy"     },
+                                                { label: "Умеренно", key: "moderate" },
+                                                { label: "Тяжело",   key: "hard"     },
+                                            ]
+                                            delegate: ColumnLayout {
+                                                Layout.fillWidth: true; spacing: 4
+                                                property int val: (root.analyticsObj.byIntensity && root.analyticsObj.byIntensity[modelData.key]) || 0
+                                                property int total: Math.max(1, root.analyticsObj.workoutsCount || 1)
+                                                RowLayout {
+                                                    Layout.fillWidth: true
+                                                    Label { text: modelData.label; font.pixelSize: 12; color: textPrimary; Layout.fillWidth: true }
+                                                    Label { text: String(val); font.pixelSize: 12; font.weight: Font.Bold; color: textPrimary }
+                                                }
+                                                Rectangle {
+                                                    Layout.fillWidth: true; height: 4; radius: 2
+                                                    color: dark ? "#30363d" : "#e2e8f0"
+                                                    Rectangle {
+                                                        width: parent.width * (val / total); height: parent.height; radius: 2
+                                                        color: accent
+                                                        Behavior on width { NumberAnimation { duration: 500 } }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
-                                    Item { Layout.fillWidth: true }
-                                    Rectangle {
-                                        width: addGoalLbl.implicitWidth + 20; height: 26; radius: 8
-                                        color: accent
+
+                                    Item { height: 16 }
+                                    Rectangle { Layout.fillWidth: true; height: 1; color: border }
+
+                                    // ── Goals ─────────────────────────────────────
+                                    ColumnLayout {
+                                        Layout.fillWidth: true; Layout.leftMargin: 20; Layout.rightMargin: 20; Layout.topMargin: 14; spacing: 10
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Label { text: "Цели"; font.pixelSize: 11; font.weight: Font.Black; color: textMuted; font.letterSpacing: 0.8 }
+                                            Item { Layout.fillWidth: true }
+                                            Label {
+                                                text: "＋ добавить"
+                                                font.pixelSize: 11; color: accent; font.weight: Font.DemiBold
+                                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: goalCreateDialog.open() }
+                                            }
+                                        }
+
+                                        GoalsList {
+                                            Layout.fillWidth: true
+                                            surface: root.surface; surface2: root.surface2
+                                            borderCol: root.border; textPrimary: root.textPrimary
+                                            textMuted: root.textMuted; accent: root.accent
+                                            runColor: root.runColor; hardColor: root.hardColor; dark: root.dark
+                                            goalsModel: workoutStore.goals
+                                            onDeleteRequested: function(id) { workoutStore.deleteGoal(id) }
+                                            onAddRequested: goalCreateDialog.open()
+                                        }
+                                    }
+
+                                    // ── Coach section ─────────────────────────────
+                                    ColumnLayout {
+                                        visible: workoutStore.currentUserRole === "coach"
+                                        Layout.fillWidth: true; Layout.leftMargin: 20; Layout.rightMargin: 20; Layout.topMargin: 8; spacing: 6
+
+                                        Rectangle { Layout.fillWidth: true; height: 1; color: border }
+
+                                        Label { text: "Тренерский workspace"; font.pixelSize: 11; font.weight: Font.Black; color: textMuted; font.letterSpacing: 0.8; topPadding: 8 }
+                                        Label { text: "Атлет: " + (workoutStore.selectedAthleteName || "не выбран"); font.pixelSize: 12; color: textPrimary }
                                         Label {
-                                            id: addGoalLbl; anchors.centerIn: parent
-                                            text: "＋ Добавить цель"
-                                            font.pixelSize: 11; font.weight: Font.DemiBold; color: "#fff"
-                                        }
-                                        MouseArea {
-                                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                            onClicked: goalCreateDialog.open()
+                                            text: workoutStore.athletes.length > 0
+                                                  ? (workoutStore.athletes.length + " атлет(а) связано")
+                                                  : "Нажмите ＋👤 в шапке чтобы добавить атлета"
+                                            font.pixelSize: 11; color: textMuted; wrapMode: Text.Wrap; Layout.fillWidth: true
                                         }
                                     }
-                                }
 
-                                GoalsList {
-                                    Layout.fillWidth: true
-                                    surface:     root.surface
-                                    surface2:    root.surface2
-                                    borderCol:   root.border
-                                    textPrimary: root.textPrimary
-                                    textMuted:   root.textMuted
-                                    accent:      root.accent
-                                    runColor:    root.runColor
-                                    hardColor:   root.hardColor
-                                    dark:        root.dark
-                                    goalsModel:  workoutStore.goals
-                                    onDeleteRequested: function(id) { workoutStore.deleteGoal(id) }
-                                    onAddRequested: goalCreateDialog.open()
+                                    Item { height: 24 }
                                 }
                             }
+                        }
 
-                            // Coach workspace card — only visible to coaches
-                            Rectangle {
-                                Layout.fillWidth: true; Layout.leftMargin: 24; Layout.rightMargin: 24
-                                visible: workoutStore.currentUserRole === "coach"
-                                height: visible ? coachInner.implicitHeight + 32 : 0
-                                radius: 12
-                                color: surface; border.width: 1; border.color: border
+                        // ── Right column: charts ──────────────────────────────────
+                        Rectangle {
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            color: bg
 
-                                Rectangle {
-                                    anchors { top: parent.top; left: parent.left; right: parent.right; margins: 1 }
-                                    height: 4; topLeftRadius: 11; topRightRadius: 11
-                                    color: runColor
-                                }
+                            ScrollView {
+                                anchors.fill: parent; contentWidth: availableWidth
+                                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
                                 ColumnLayout {
-                                    id: coachInner
-                                    anchors { fill: parent; margins: 16; topMargin: 18 }
-                                    spacing: 8
-                                    Label { text: "🏋  Тренерский workspace"; font.pixelSize: 14; font.weight: Font.Black; color: textPrimary }
-                                    Label { text: "Атлет: " + (workoutStore.selectedAthleteName || "не выбран"); font.pixelSize: 12; color: textMuted }
-                                    Label {
-                                        text: workoutStore.athletes.length > 0
-                                              ? ("Связанных атлетов: " + workoutStore.athletes.length)
-                                              : "Нажмите ＋👤 в шапке чтобы добавить атлета"
-                                        font.pixelSize: 12; color: textMuted; wrapMode: Text.Wrap
-                                        Layout.fillWidth: true
+                                    width: parent.width; spacing: 16
+                                    anchors { leftMargin: 20; rightMargin: 20; topMargin: 20 }
+
+                                    // Metric toggle (km / min / count)
+                                    Rectangle {
+                                        Layout.fillWidth: true; Layout.leftMargin: 20; Layout.rightMargin: 20
+                                        height: 34; radius: 8; color: surface; border.width: 1; border.color: border
+                                        RowLayout {
+                                            anchors { fill: parent; margins: 4 }
+                                            spacing: 2
+                                            Repeater {
+                                                model: [{ l:"км", v:"distance"},{l:"мин",v:"duration"},{l:"трен.",v:"count"}]
+                                                Rectangle {
+                                                    Layout.fillWidth: true; height: parent.height; radius: 6
+                                                    color: root.analyticsMetric === modelData.v ? (dark ? "#30363d" : "#f1f5f9") : "transparent"
+                                                    Label { anchors.centerIn: parent; text: modelData.l; font.pixelSize: 12; font.weight: Font.DemiBold
+                                                            color: root.analyticsMetric === modelData.v ? textPrimary : textMuted }
+                                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.analyticsMetric = modelData.v }
+                                                }
+                                            }
+                                        }
                                     }
+
+                                    // Charts (from AnalyticsCharts.qml — monochrome accent-only)
+                                    AnalyticsCharts {
+                                        Layout.fillWidth: true; Layout.leftMargin: 20; Layout.rightMargin: 20
+                                        surface: root.surface; surface2: root.surface2; borderCol: root.border
+                                        textPrimary: root.textPrimary; textMuted: root.textMuted
+                                        accent: root.accent; runColor: root.accent  // use single accent color for both chart types
+                                        dark: root.dark
+                                        weeklyVolume:  root.analyticsObj.weeklyVolume  || []
+                                        monthlyVolume: root.analyticsObj.monthlyVolume || []
+                                        metric: root.analyticsMetric
+                                    }
+
+                                    Item { height: 8 }
                                 }
                             }
-
-                            Item { height: 24 }
                         }
                     }
                 }
@@ -1541,6 +1457,31 @@ ApplicationWindow {
             spacing: 10
             Label { text: "⚠  Сессия истекла — пожалуйста, войдите снова."; color: "#fef3c7"; font.pixelSize: 13; Layout.fillWidth: true }
             RoundButton { width: 28; height: 28; radius: 6; flat: true; text: "✕"; font.pixelSize: 12; onClicked: sessionExpiredBanner.visible = false }
+        }
+    }
+
+    // ── Settings panel ───────────────────────────────────────────────────────
+    SettingsPanel {
+        id: settingsPanel
+        anchors.fill: parent
+        z: 250
+
+        bg:          root.bg
+        surface:     root.surface
+        surface2:    root.surface2
+        borderCol:   root.border
+        textPrimary: root.textPrimary
+        textMuted:   root.textMuted
+        accent:      root.accent
+        dark:        root.dark
+
+        themeMode:    root.themeMode
+        hasOpenAiKey: workoutStore.hasOpenAiKey
+
+        onThemeModeChangeRequested: function(mode) { root.themeMode = mode }
+        onOpenAiKeyRequested: {
+            settingsPanel.close()
+            openAiKeyDlg.open()
         }
     }
 
