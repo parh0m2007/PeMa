@@ -1088,6 +1088,17 @@ void WorkoutStore::setOpenAiKey(const QString &key)
     emit openAiKeyChanged();
 }
 
+void WorkoutStore::setServerUrl(const QString &url)
+{
+    QString trimmed = url.trimmed();
+    if (trimmed.isEmpty() || trimmed == m_baseUrl) return;
+    // Remove trailing slash for uniformity
+    while (trimmed.endsWith(QLatin1Char('/')))
+        trimmed.chop(1);
+    m_baseUrl = trimmed;
+    emit serverUrlChanged();
+}
+
 void WorkoutStore::generateRoute(double lat, double lon,
                                   double distanceKm, const QString &preferences)
 {

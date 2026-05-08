@@ -173,6 +173,11 @@ public:
     Q_INVOKABLE void deleteRoute(const QString &routeId);
     Q_INVOKABLE void setOpenAiKey(const QString &key);
 
+    // ── Server config ─────────────────────────────────────────────────────────
+    Q_PROPERTY(QString serverUrl READ serverUrl WRITE setServerUrl NOTIFY serverUrlChanged)
+    QString serverUrl() const { return m_baseUrl; }
+    void    setServerUrl(const QString &url);
+
 signals:
     // Auth
     void loginStateChanged();
@@ -197,6 +202,7 @@ signals:
     void goalsChanged();
     void routesChanged();
     void openAiKeyChanged();
+    void serverUrlChanged();
     void templatesChanged();
     void createDialogOpenChanged();
     void draftChanged();

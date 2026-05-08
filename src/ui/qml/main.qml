@@ -1476,9 +1476,11 @@ ApplicationWindow {
         dark:        root.dark
 
         themeMode:    root.themeMode
+        serverUrl:    workoutStore.serverUrl
         hasOpenAiKey: workoutStore.hasOpenAiKey
 
         onThemeModeChangeRequested: function(mode) { root.themeMode = mode }
+        onServerUrlChangeRequested: function(url) { workoutStore.serverUrl = url }
         onOpenAiKeyRequested: {
             settingsPanel.close()
             openAiKeyDlg.open()
