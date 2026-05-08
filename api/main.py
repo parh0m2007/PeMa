@@ -14,6 +14,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 import bcrypt as _bcrypt
@@ -431,6 +432,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── OSM tile proxy (no auth) ──────────────────────────────────────────────────
+# Qt Image doesn't send a User-Agent; OSM blocks such requests with 418.
+# We proxy through the local backend which sends a proper UA.
+_TILE_CACHE: dict = {}   # simple in-memory cache  {(z,x,y): bytes}
+
+@app.get("/api/tiles/{z}/{x}/{y}")
+async def proxy_osm_tile(z: int, x: int, y: int):
+    import httpx
+    key = (z, x, y)
+    if key in _TILE_CACHE:
+        return Response(content=_TILE_CACHE[key], media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=86400"})
+    url = f"https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.get(url, headers={
+                "User-Agent": "SportCal/1.0 (desktop sport training app; https://github.com/sportcal)",
+                "Accept": "image/png,image/*",
+                "Referer": "https://www.openstreetmap.org/",
+            })
+        if r.status_code == 200:
+            _TILE_CACHE[key] = r.content
+            return Response(content=r.content, media_type="image/png",
+                            headers={"Cache-Control": "public, max-age=86400"})
+        raise HTTPException(status_code=r.status_code, detail="Tile fetch failed")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @app.on_event("startup")

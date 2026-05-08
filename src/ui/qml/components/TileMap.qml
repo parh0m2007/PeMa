@@ -10,12 +10,14 @@ Item {
     clip: true
 
     // ── Public API ────────────────────────────────────────────────────────────
-    property double centerLat: 55.7558   // Moscow default
-    property double centerLon: 37.6173
-    property int    zoom:       14
-    property var    routeCoords: []      // [[lon, lat], …]
+    property double centerLat:  55.7558   // Moscow default
+    property double centerLon:  37.6173
+    property int    zoom:        14
+    property var    routeCoords: []       // [[lon, lat], …]
     property color  lineColor:  "#6366f1"
-    property bool   dark:       false
+    property bool   dark:        false
+    // Tile server base – defaults to local proxy (avoids OSM 418 / UA block)
+    property string tileServer: "http://localhost:8000/api/tiles"
 
     // ── Edit mode ─────────────────────────────────────────────────────────────
     property bool editMode: false        // when true, clicks add waypoints
@@ -133,7 +135,7 @@ Item {
                 tiles.push({
                     x:   sx,
                     y:   sy,
-                    url: "https://tile.openstreetmap.org/" + zoom + "/" + vtx + "/" + vty + ".png"
+                    url: tileMap.tileServer + "/" + zoom + "/" + vtx + "/" + vty
                 })
             }
         }
