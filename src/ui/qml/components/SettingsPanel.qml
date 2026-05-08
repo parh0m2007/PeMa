@@ -55,7 +55,10 @@ Item {
 
         color: panel.surface
         // Left shadow line
-        Rectangle { anchors { left: parent.left; top: parent.top; bottom: parent.bottom }; width: 1; color: panel.borderCol }
+        Rectangle {
+            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+            width: 1; color: panel.borderCol
+        }
 
         ScrollView {
             anchors.fill: parent
