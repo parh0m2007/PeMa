@@ -1,18 +1,18 @@
-# PeMa — Personal Training Manager
+# PeMa - Personal Training Manager
 
 Desktop app for planning and tracking workouts. Coach creates plans, athlete executes and reports back. Built with Qt 6 + FastAPI.
 
 ## Features
 
-- **Calendar** — monthly grid with workout cards, click any day to plan
+- **Calendar** - monthly grid with workout cards, click any day to plan
 - **Roles** — coach creates/edits workouts, athlete marks them done/skipped with feedback
-- **Analytics** — distance, duration, pace, streak, weekly/monthly charts, completion rate
+- **Analytics** - distance, duration, pace, streak, weekly/monthly charts, completion rate
 - **Routes** — generate circular routes by distance, draw custom routes on an OSM map, sync activities from Strava
-- **Watch import** — upload `.gpx` or `.fit` files to fill in actual distance, HR, elevation
+- **Watch import** - upload `.gpx` or `.fit` files to fill in actual distance, HR, elevation
 - **Templates / Builder** — save reusable workout templates and schedule them in one click
-- **Pain map** — clickable body silhouette to tag sore spots in post-workout feedback
-- **Goals** — set race/volume targets with progress tracking
-- **Dark mode** — full light/dark/system theme support
+- **Pain map** - clickable body silhouette to tag sore spots in post-workout feedback
+- **Goals** - set race/volume targets with progress tracking
+- **Dark mode** - full light/dark/system theme support
 
 ## Tech stack
 
