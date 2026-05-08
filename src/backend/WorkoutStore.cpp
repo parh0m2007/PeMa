@@ -1006,7 +1006,7 @@ bool WorkoutStore::importWatchFile(const QString &workoutId, const QString &loca
     f.close();
 
     const QString fileName = QFileInfo(cleaned).fileName();
-    const QString boundary = QStringLiteral("----SportCalBoundary%1")
+    const QString boundary = QStringLiteral("----PeMaBoundary%1")
                                 .arg(QDateTime::currentMSecsSinceEpoch());
 
     QByteArray body;

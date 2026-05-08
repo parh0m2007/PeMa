@@ -10,7 +10,7 @@ ApplicationWindow {
     visible: true
     width: 1440
     height: 880
-    title: "SportCal"
+    title: "PeMa"
     minimumWidth: 960
     minimumHeight: 640
 
@@ -263,7 +263,7 @@ ApplicationWindow {
                         Label { anchors.centerIn: parent; text: "S"; font.pixelSize: 15; font.weight: Font.Black; color: "#fff" }
                     }
                     Label {
-                        text: "SportCal"
+                        text: "PeMa"
                         font.pixelSize: 17
                         font.weight: Font.Bold
                         color: textPrimary

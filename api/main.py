@@ -1,5 +1,5 @@
 """
-Sport Calendar API v2 — FastAPI + SQLAlchemy (SQLite)
+PeMa API v2 — FastAPI + SQLAlchemy (SQLite)
 Auth: JWT Bearer tokens, bcrypt passwords
 Run: uvicorn api.main:app --reload --port 8000
 """
@@ -30,7 +30,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_ME_IN_PRODUCTION_PLEASE_SET_ENV_VAR
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
-DATABASE_URL = "sqlite:///./sport_calendar.db"
+DATABASE_URL = "sqlite:///./pema.db"
 
 # ─── Database ────────────────────────────────────────────────────────────────
 
@@ -424,7 +424,7 @@ def tpl_to_dict(t: TemplateDB) -> dict:
 
 # ─── App ─────────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="Sport Calendar API", version="2.0.0", docs_url="/docs")
+app = FastAPI(title="PeMa API", version="2.0.0", docs_url="/docs")
 
 app.add_middleware(
     CORSMiddleware,
@@ -449,7 +449,7 @@ async def proxy_osm_tile(z: int, x: int, y: int):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             r = await client.get(url, headers={
-                "User-Agent": "SportCal/1.0 (desktop sport training app; https://github.com/sportcal)",
+                "User-Agent": "PeMa/1.0 (desktop sport training app; https://github.com/sportcal)",
                 "Accept": "image/png,image/*",
                 "Referer": "https://www.openstreetmap.org/",
             })
@@ -1455,7 +1455,7 @@ def generate_route(
     # ── Step 2: Reverse-geocode start to get location name (Nominatim, free) ───
     route_name = f"Маршрут {target_km:.0f} км"
     try:
-        with httpx.Client(timeout=6, headers={"User-Agent": "SportCal/2.0"}) as client:
+        with httpx.Client(timeout=6, headers={"User-Agent": "PeMa/2.0"}) as client:
             nom = client.get(
                 f"https://nominatim.openstreetmap.org/reverse"
                 f"?lat={lat}&lon={lon}&format=json&zoom=14"
@@ -1645,7 +1645,7 @@ def strava_callback(
     return HTMLResponse("""
         <html><body style="font-family:sans-serif;text-align:center;padding:60px">
         <h2>✅ Strava подключена!</h2>
-        <p>Вернитесь в приложение SportCal и нажмите «Синхронизировать».</p>
+        <p>Вернитесь в приложение PeMa и нажмите «Синхронизировать».</p>
         </body></html>
     """)
 

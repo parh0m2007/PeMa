@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(QtCalendarApp VERSION 0.1.0 LANGUAGES CXX)
+project(PeMa VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,15 +21,15 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS
 
 qt_standard_project_setup()
 
-qt_add_executable(QtCalendarApp
+qt_add_executable(PeMa
   src/app/main.cpp
   src/backend/WorkoutStore.cpp
   resources/resources.qrc
 )
 
-target_include_directories(QtCalendarApp PRIVATE src)
+target_include_directories(PeMa PRIVATE src)
 
-target_link_libraries(QtCalendarApp PRIVATE
+target_link_libraries(PeMa PRIVATE
   Qt6::Core
   Qt6::Gui
   Qt6::Qml
@@ -38,7 +38,7 @@ target_link_libraries(QtCalendarApp PRIVATE
   Qt6::Network
 )
 
-set_target_properties(QtCalendarApp PROPERTIES
+set_target_properties(PeMa PROPERTIES
   MACOSX_BUNDLE TRUE
 )
 
@@ -50,12 +50,12 @@ if (WIN32)
   )
 
   if (WINDEPLOYQT_EXECUTABLE)
-    add_custom_command(TARGET QtCalendarApp POST_BUILD
+    add_custom_command(TARGET PeMa POST_BUILD
       COMMAND "${WINDEPLOYQT_EXECUTABLE}"
               --no-translations
               --qmldir "${CMAKE_SOURCE_DIR}/src/ui/qml"
-              "$<TARGET_FILE:QtCalendarApp>"
-      COMMENT "Running windeployqt for QtCalendarApp"
+              "$<TARGET_FILE:PeMa>"
+      COMMENT "Running windeployqt for PeMa"
       VERBATIM
     )
   else()

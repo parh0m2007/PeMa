@@ -187,7 +187,7 @@ Item {
 
                             Label {
                                 Layout.fillWidth: true
-                                text: "SportCal принимает файлы .gpx и .fit. Экспортируй активность из приложения своего устройства."
+                                text: "PeMa принимает файлы .gpx и .fit. Экспортируй активность из приложения своего устройства."
                                 font.pixelSize: 12; color: panel.textPrimary; wrapMode: Text.Wrap
                             }
 
@@ -224,7 +224,7 @@ Item {
                     Layout.fillWidth: true; Layout.leftMargin: 24; Layout.rightMargin: 24
                     spacing: 4
                     Label { text: "О ПРИЛОЖЕНИИ"; font.pixelSize: 9; font.weight: Font.Black; color: panel.textMuted; font.letterSpacing: 1.2 }
-                    Label { text: "SportCal v2.0"; font.pixelSize: 13; font.weight: Font.DemiBold; color: panel.textPrimary }
+                    Label { text: "PeMa v2.0"; font.pixelSize: 13; font.weight: Font.DemiBold; color: panel.textPrimary }
                     Label { text: "Qt 6 · FastAPI · SQLite · OpenStreetMap tiles"; font.pixelSize: 11; color: panel.textMuted }
                 }
 

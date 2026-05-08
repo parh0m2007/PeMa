@@ -1,56 +1,106 @@
-# Qt Calendar App (C++/Qt)
+# PeMa — Personal Training Manager
 
-Локальное desktop-приложение для планирования тренировок с ролями тренер/атлет.
+Desktop app for planning and tracking workouts. Coach creates plans, athlete executes and reports back. Built with Qt 6 + FastAPI.
 
-## Что реализовано
+## Features
 
-- Календарная сетка месяца 7x6 с карточками тренировок в ячейках.
-- Роли пользователя (`coach`, `athlete`) и локальный выбор текущего профиля.
-- Связка тренер -> атлет через таблицу `coach_athlete_links` и фильтрацию доступа.
-- Тренировки: создание, редактирование, удаление.
-- Шаблоны: создание, редактирование, удаление и постановка в план.
-- Статусы тренировок: `planned`, `done`, `skipped` + текстовый feedback атлета.
-- Комментарии к тренировкам.
-- Глобальный баннер ошибок и валидация JSON-интервалов.
+- **Calendar** — monthly grid with workout cards, click any day to plan
+- **Roles** — coach creates/edits workouts, athlete marks them done/skipped with feedback
+- **Analytics** — distance, duration, pace, streak, weekly/monthly charts, completion rate
+- **Routes** — generate circular routes by distance, draw custom routes on an OSM map, sync activities from Strava
+- **Watch import** — upload `.gpx` or `.fit` files to fill in actual distance, HR, elevation
+- **Templates / Builder** — save reusable workout templates and schedule them in one click
+- **Pain map** — clickable body silhouette to tag sore spots in post-workout feedback
+- **Goals** — set race/volume targets with progress tracking
+- **Dark mode** — full light/dark/system theme support
 
-## Хранение данных
+## Tech stack
 
-- БД: SQLite в файле (не `:memory:`).
-- Путь: `QStandardPaths::AppDataLocation/sport_calendar.sqlite`.
-- Данные сохраняются между перезапусками.
+| Layer | Technology |
+|---|---|
+| UI | Qt 6 / QML / QuickControls 2 |
+| Backend | Python · FastAPI · SQLAlchemy · SQLite |
+| Maps | OpenStreetMap tiles (proxied) · OSRM routing |
+| Auth | JWT · bcrypt |
+| Sync | Strava API OAuth2 · GPX/FIT parsing |
 
-## Сборка
+## Requirements
 
-Укажите путь к Qt6 (где лежит `Qt6Config.cmake`):
+**Qt app (C++)**
+- Qt 6.5+ (Core, Gui, Qml, Quick, QuickControls2, Network)
+- CMake 3.21+
+- C++17 compiler (AppleClang / MSVC / GCC)
 
+**Backend (Python)**
+- Python 3.10+
+- Dependencies listed in `api/requirements.txt`
+
+## Quick start (macOS)
+
+```bash
+# Clone
+git clone https://github.com/yourname/pema.git
+cd pema
+
+# Launch everything (builds Qt app, starts backend, opens app)
+bash PeMa.command
+```
+
+The script automatically:
+- Configures and builds the Qt app (first run ~1 min)
+- Creates a Python venv and installs dependencies
+- Starts the FastAPI backend on `http://localhost:8000`
+- Opens the app; kills the backend when you close the window
+
+## Manual build
+
+```bash
+# Backend
+cd api
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --port 8000
+
+# Qt app (new terminal)
+mkdir build && cd build
+cmake -DCMAKE_PREFIX_PATH="~/Qt/6.11.0/macos" ..
+cmake --build . --parallel
+open PeMa.app
+```
+
+**Windows:**
 ```powershell
-cmake -S . -B build -DCMAKE_PREFIX_PATH="C:\Qt\6.8.3\msvc2022_64"
+cmake -S . -B build -DCMAKE_PREFIX_PATH="C:\Qt\6.x.x\msvc2022_64"
 cmake --build build
 ```
 
-Если используете MinGW-комплект Qt, подставьте путь к своему комплекту в `CMAKE_PREFIX_PATH`.
+## Project structure
 
-## Smoke-проверки (после сборки)
+```
+├── api/
+│   ├── main.py              # FastAPI app (auth, workouts, routes, Strava)
+│   └── requirements.txt
+├── src/
+│   ├── app/main.cpp
+│   ├── backend/
+│   │   ├── WorkoutStore.h
+│   │   └── WorkoutStore.cpp # Qt ↔ backend bridge
+│   └── ui/qml/
+│       ├── main.qml
+│       ├── RouteTab.qml
+│       └── components/      # AuthScreen, TileMap, BodyPainMap, …
+├── resources/
+├── CMakeLists.txt
+└── PeMa.command             # macOS one-click launcher
+```
 
-1. Запуск приложения:
-   - открывается календарь;
-   - в верхней панели доступны профили пользователей.
-2. Проверка персистентности:
-   - создать тренировку;
-   - перезапустить приложение;
-   - тренировка осталась в календаре.
-3. Проверка ролей:
-   - под `coach` создать/удалить тренировку (должно работать);
-   - под `athlete` попытаться создать тренировку (должно быть запрещено UI и backend).
-4. Проверка шаблонов:
-   - создать новый шаблон;
-   - поставить в план на ISO-дату (`YYYY-MM-DD`);
-   - отредактировать и удалить шаблон.
-5. Проверка статусов:
-   - выбрать тренировку;
-   - сменить статус на `done` или `skipped`;
-   - добавить feedback.
-6. Проверка валидации:
-   - в форме тренировки указать некорректный JSON интервалов;
-   - получить понятную ошибку в верхнем баннере.
+## Strava integration
 
+1. Create a free app at [strava.com/settings/api](https://www.strava.com/settings/api)
+2. In PeMa → Routes → enter your Client ID & Secret
+3. Click **Connect Strava** — browser opens for OAuth
+4. Click **Sync** to import recent activities
+
+## License
+
+MIT

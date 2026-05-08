@@ -1,13 +1,34 @@
+# Build output
 build-local/
+build/
+*.o
+*.a
+*.so
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
 .venv/
+api/venv/
 venv/
-*.o
-*.a
-*.so
+
+# Database files (created at runtime)
+*.db
+*.sqlite
+
+# macOS
 .DS_Store
+
+# Qt
 *.user
 .qmake.stash
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Old name
+SportCal.command

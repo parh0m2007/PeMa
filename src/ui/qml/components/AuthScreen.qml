@@ -78,7 +78,7 @@ Rectangle {
                     }
                 }
                 Label {
-                    text: "SportCal"
+                    text: "PeMa"
                     font.pixelSize: 22; font.weight: Font.Black
                     color: textPrimary; font.letterSpacing: -0.5
                 }
