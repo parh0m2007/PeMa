@@ -8,6 +8,7 @@
 #include <QLocale>
 #include <QSettings>
 #include <QTimer>
+#include <QDesktopServices>
 #include <QUrl>
 #include <QUrlQuery>
 
@@ -257,6 +258,7 @@ void WorkoutStore::initialLoad()
     fetchTemplates();
     fetchRoutes();
     fetchOpenAiKeyStatus();
+    fetchStravaStatus();
 }
 
 // ─── HTTP layer ───────────────────────────────────────────────────────────────
@@ -1123,6 +1125,104 @@ void WorkoutStore::deleteRoute(const QString &routeId)
                               QStringLiteral("/api/routes/") + routeId);
     Q_UNUSED(doc);
     fetchRoutes();
+}
+
+void WorkoutStore::buildRouteFromWaypoints(const QVariantList &waypoints, const QString &name)
+{
+    QJsonArray waypointsArr;
+    for (const auto &wp : waypoints) {
+        const QVariantList pair = wp.toList();
+        if (pair.size() >= 2) {
+            QJsonArray pt;
+            pt.append(pair[0].toDouble()); // lon
+            pt.append(pair[1].toDouble()); // lat
+            waypointsArr.append(pt);
+        }
+    }
+    QJsonObject body;
+    body[QStringLiteral("waypoints")] = waypointsArr;
+    body[QStringLiteral("name")]      = name;
+
+    setBusy(true);
+    QTimer::singleShot(0, this, [this, body]() {
+        const auto doc = httpSync(QStringLiteral("POST"),
+                                  QStringLiteral("/api/routes/from-waypoints"), body);
+        setBusy(false);
+        if (doc.isNull()) return;
+        fetchRoutes();
+    });
+}
+
+// ── Strava ────────────────────────────────────────────────────────────────────
+
+void WorkoutStore::fetchStravaStatus()
+{
+    httpAsync(QStringLiteral("/api/strava/status"), [this](const QJsonDocument &doc) {
+        if (!doc.isObject()) return;
+        const QJsonObject obj = doc.object();
+        bool conn = obj.value(QStringLiteral("connected")).toBool(false);
+        bool hasCid = obj.value(QStringLiteral("hasClientId")).toBool(false);
+        if (conn != m_stravaConnected || hasCid != m_stravaHasClientId) {
+            m_stravaConnected   = conn;
+            m_stravaHasClientId = hasCid;
+            emit stravaStatusChanged();
+        }
+    });
+}
+
+void WorkoutStore::saveStravaCredentials(const QString &clientId,
+                                          const QString &clientSecret)
+{
+    QJsonObject body;
+    body[QStringLiteral("client_id")]     = clientId;
+    body[QStringLiteral("client_secret")] = clientSecret;
+    const auto doc = httpSync(QStringLiteral("PUT"),
+                              QStringLiteral("/api/strava/credentials"), body);
+    Q_UNUSED(doc);
+    fetchStravaStatus();
+}
+
+void WorkoutStore::openStravaAuthUrl()
+{
+    // GET the auth URL from backend, then open it in external browser
+    const auto doc = httpSync(QStringLiteral("GET"),
+                              QStringLiteral("/api/strava/auth-url"),
+                              QJsonObject{});
+    if (!doc.isNull() && doc.isObject()) {
+        const QString url = doc.object().value(QStringLiteral("url")).toString();
+        if (!url.isEmpty()) {
+            QDesktopServices::openUrl(QUrl(url));
+        }
+    }
+}
+
+void WorkoutStore::syncStrava()
+{
+    setBusy(true);
+    QTimer::singleShot(0, this, [this]() {
+        const auto doc = httpSync(QStringLiteral("POST"),
+                                  QStringLiteral("/api/strava/sync"),
+                                  QJsonObject{});
+        setBusy(false);
+        if (doc.isNull()) return;
+        int imported = 0;
+        if (doc.isObject())
+            imported = doc.object().value(QStringLiteral("imported")).toInt(0);
+        emit stravaSyncDone(imported);
+        fetchCalendar();
+        fetchAnalytics();
+    });
+}
+
+void WorkoutStore::disconnectStrava()
+{
+    const auto doc = httpSync(QStringLiteral("DELETE"),
+                              QStringLiteral("/api/strava/disconnect"),
+                              QJsonObject{});
+    Q_UNUSED(doc);
+    m_stravaConnected = false;
+    // Keep m_stravaHasClientId true — credentials remain, just tokens gone
+    emit stravaStatusChanged();
 }
 
 void WorkoutStore::setError(const QString &message)

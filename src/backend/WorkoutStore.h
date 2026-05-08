@@ -41,6 +41,8 @@ class WorkoutStore : public QObject
     Q_PROPERTY(QVariantList goals                  READ goals                  NOTIFY goalsChanged)
     Q_PROPERTY(QVariantList routes                 READ routes                 NOTIFY routesChanged)
     Q_PROPERTY(bool         hasOpenAiKey           READ hasOpenAiKey           NOTIFY openAiKeyChanged)
+    Q_PROPERTY(bool         stravaConnected        READ stravaConnected        NOTIFY stravaStatusChanged)
+    Q_PROPERTY(bool         stravaHasClientId      READ stravaHasClientId      NOTIFY stravaStatusChanged)
     Q_PROPERTY(QVariantList templateLibrary        READ templateLibrary        NOTIFY templatesChanged)
     Q_PROPERTY(bool         createDialogOpen       READ createDialogOpen
                WRITE setCreateDialogOpen           NOTIFY createDialogOpenChanged)
@@ -80,6 +82,8 @@ public:
     QVariantList goals()               const { return m_goals; }
     QVariantList routes()              const { return m_routes; }
     bool         hasOpenAiKey()        const { return m_hasOpenAiKey; }
+    bool         stravaConnected()     const { return m_stravaConnected; }
+    bool         stravaHasClientId()   const { return m_stravaHasClientId; }
     QVariantList templateLibrary()     const { return m_templateLibrary; }
     bool         createDialogOpen()    const { return m_createDialogOpen; }
     void         setCreateDialogOpen(bool open);
@@ -170,8 +174,16 @@ public:
     // ── Routes ────────────────────────────────────────────────────────────────
     Q_INVOKABLE void generateRoute(double lat, double lon,
                                    double distanceKm, const QString &preferences);
+    Q_INVOKABLE void buildRouteFromWaypoints(const QVariantList &waypoints, const QString &name);
     Q_INVOKABLE void deleteRoute(const QString &routeId);
     Q_INVOKABLE void setOpenAiKey(const QString &key);
+
+    // ── Strava ────────────────────────────────────────────────────────────────
+    Q_INVOKABLE void saveStravaCredentials(const QString &clientId,
+                                           const QString &clientSecret);
+    Q_INVOKABLE void openStravaAuthUrl();
+    Q_INVOKABLE void syncStrava();
+    Q_INVOKABLE void disconnectStrava();
 
     // ── Server config ─────────────────────────────────────────────────────────
     Q_PROPERTY(QString serverUrl READ serverUrl WRITE setServerUrl NOTIFY serverUrlChanged)
@@ -202,6 +214,8 @@ signals:
     void goalsChanged();
     void routesChanged();
     void openAiKeyChanged();
+    void stravaStatusChanged();
+    void stravaSyncDone(int imported);
     void serverUrlChanged();
     void templatesChanged();
     void createDialogOpenChanged();
@@ -235,6 +249,7 @@ private:
     void fetchGoals();
     void fetchRoutes();
     void fetchOpenAiKeyStatus();
+    void fetchStravaStatus();
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     void setError(const QString &message);
@@ -267,6 +282,8 @@ private:
     QVariantList m_goals;
     QVariantList m_routes;
     bool         m_hasOpenAiKey = false;
+    bool         m_stravaConnected   = false;
+    bool         m_stravaHasClientId = false;
     QString      m_routeGenerating; // id of currently generating route ("" when idle)
     QVariantList m_templateLibrary;
 

@@ -17,6 +17,40 @@ Item {
     property color  lineColor:  "#6366f1"
     property bool   dark:       false
 
+    // ── Edit mode ─────────────────────────────────────────────────────────────
+    property bool editMode: false        // when true, clicks add waypoints
+    property var  editWaypoints: []      // [{lat, lon}, …]
+    signal waypointAdded()               // emitted after each click-add
+
+    function addWaypoint(lat, lon) {
+        var wps = editWaypoints.slice()
+        wps.push({ lat: lat, lon: lon })
+        editWaypoints = wps
+        waypointAdded()
+        routeCanvas.requestPaint()
+    }
+    function removeLastWaypoint() {
+        if (editWaypoints.length === 0) return
+        var wps = editWaypoints.slice(0, editWaypoints.length - 1)
+        editWaypoints = wps
+        routeCanvas.requestPaint()
+    }
+    function clearEditWaypoints() {
+        editWaypoints = []
+        routeCanvas.requestPaint()
+    }
+
+    // Inverse mercator: screen pixel → {lat, lon}
+    function screenToLatLon(sx, sy) {
+        var cx = _lonToWorld(centerLon)
+        var cy = _latToWorld(centerLat)
+        var wx = sx - width / 2 + cx
+        var wy = sy - height / 2 + cy
+        var lon = wx * 360 / _scale() - 180
+        var lat = _worldYToLat(wy)
+        return { lat: lat, lon: lon }
+    }
+
     // ── Tile state ────────────────────────────────────────────────────────────
     property var    tileData:   []
 
@@ -146,48 +180,72 @@ Item {
         onPaint: {
             var ctx = getContext("2d")
             ctx.clearRect(0, 0, width, height)
-            if (!tileMap.routeCoords || tileMap.routeCoords.length < 2) return
 
-            // White halo under the line (legibility on light tiles)
-            ctx.strokeStyle = "white"
-            ctx.lineWidth   = 6
-            ctx.lineCap     = "round"
-            ctx.lineJoin    = "round"
-            ctx.globalAlpha = 0.7
-            ctx.beginPath()
-            var p0 = tileMap.latLonToScreen(tileMap.routeCoords[0][1], tileMap.routeCoords[0][0])
-            ctx.moveTo(p0.x, p0.y)
-            for (var i = 1; i < tileMap.routeCoords.length; i++) {
-                var p = tileMap.latLonToScreen(tileMap.routeCoords[i][1], tileMap.routeCoords[i][0])
-                ctx.lineTo(p.x, p.y)
+            // ── Saved route ───────────────────────────────────────────────────
+            if (tileMap.routeCoords && tileMap.routeCoords.length >= 2) {
+                var p0 = tileMap.latLonToScreen(tileMap.routeCoords[0][1], tileMap.routeCoords[0][0])
+
+                // White halo
+                ctx.strokeStyle = "white"; ctx.lineWidth = 6; ctx.lineCap = "round"
+                ctx.lineJoin = "round"; ctx.globalAlpha = 0.7
+                ctx.beginPath(); ctx.moveTo(p0.x, p0.y)
+                for (var i = 1; i < tileMap.routeCoords.length; i++) {
+                    var p = tileMap.latLonToScreen(tileMap.routeCoords[i][1], tileMap.routeCoords[i][0])
+                    ctx.lineTo(p.x, p.y)
+                }
+                ctx.stroke()
+
+                // Colored line
+                ctx.strokeStyle = tileMap.lineColor; ctx.lineWidth = 3.5; ctx.globalAlpha = 1.0
+                ctx.beginPath(); ctx.moveTo(p0.x, p0.y)
+                for (var j = 1; j < tileMap.routeCoords.length; j++) {
+                    var q = tileMap.latLonToScreen(tileMap.routeCoords[j][1], tileMap.routeCoords[j][0])
+                    ctx.lineTo(q.x, q.y)
+                }
+                ctx.stroke()
+
+                // Start dot
+                ctx.strokeStyle = "white"; ctx.lineWidth = 2.5; ctx.fillStyle = "#22c55e"
+                ctx.beginPath(); ctx.arc(p0.x, p0.y, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+
+                // End dot
+                var pn = tileMap.latLonToScreen(
+                    tileMap.routeCoords[tileMap.routeCoords.length - 1][1],
+                    tileMap.routeCoords[tileMap.routeCoords.length - 1][0])
+                ctx.fillStyle = tileMap.lineColor
+                ctx.beginPath(); ctx.arc(pn.x, pn.y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
             }
-            ctx.stroke()
 
-            // Colored route line
-            ctx.strokeStyle = tileMap.lineColor
-            ctx.lineWidth   = 3.5
-            ctx.globalAlpha = 1.0
-            ctx.shadowBlur  = 0
-            ctx.beginPath()
-            p0 = tileMap.latLonToScreen(tileMap.routeCoords[0][1], tileMap.routeCoords[0][0])
-            ctx.moveTo(p0.x, p0.y)
-            for (var j = 1; j < tileMap.routeCoords.length; j++) {
-                var q = tileMap.latLonToScreen(tileMap.routeCoords[j][1], tileMap.routeCoords[j][0])
-                ctx.lineTo(q.x, q.y)
+            // ── Edit waypoints preview ────────────────────────────────────────
+            var wps = tileMap.editWaypoints
+            if (wps && wps.length >= 1) {
+                // Dashed connecting line
+                ctx.setLineDash([6, 4])
+                ctx.strokeStyle = tileMap.lineColor; ctx.lineWidth = 2.5
+                ctx.globalAlpha = 0.85; ctx.lineCap = "round"; ctx.lineJoin = "round"
+                ctx.beginPath()
+                var ep0 = tileMap.latLonToScreen(wps[0].lat, wps[0].lon)
+                ctx.moveTo(ep0.x, ep0.y)
+                for (var wi = 1; wi < wps.length; wi++) {
+                    var ep = tileMap.latLonToScreen(wps[wi].lat, wps[wi].lon)
+                    ctx.lineTo(ep.x, ep.y)
+                }
+                ctx.stroke()
+                ctx.setLineDash([])
+
+                // Waypoint dots
+                for (var di = 0; di < wps.length; di++) {
+                    var dp = tileMap.latLonToScreen(wps[di].lat, wps[di].lon)
+                    ctx.globalAlpha = 1.0
+                    // White ring
+                    ctx.fillStyle = "white"; ctx.strokeStyle = tileMap.lineColor; ctx.lineWidth = 2
+                    ctx.beginPath(); ctx.arc(dp.x, dp.y, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+                    // Number label
+                    ctx.fillStyle = tileMap.lineColor; ctx.font = "bold 9px sans-serif"
+                    ctx.textAlign = "center"; ctx.textBaseline = "middle"
+                    ctx.fillText(String(di + 1), dp.x, dp.y)
+                }
             }
-            ctx.stroke()
-
-            // Start marker — green dot with white border
-            ctx.strokeStyle = "white"; ctx.lineWidth = 2.5
-            ctx.fillStyle   = "#22c55e"
-            ctx.beginPath(); ctx.arc(p0.x, p0.y, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
-
-            // End marker — accent dot
-            var pn = tileMap.latLonToScreen(
-                        tileMap.routeCoords[tileMap.routeCoords.length - 1][1],
-                        tileMap.routeCoords[tileMap.routeCoords.length - 1][0])
-            ctx.fillStyle = tileMap.lineColor
-            ctx.beginPath(); ctx.arc(pn.x, pn.y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
         }
     }
 
@@ -239,9 +297,14 @@ Item {
 
     MouseArea {
         anchors.fill: parent
-        z: 15                          // above tiles, below zoom buttons
+        z: 15
+        cursorShape: tileMap.editMode ? Qt.CrossCursor : Qt.ArrowCursor
 
-        onPressed:  function(e) {
+        // Track drag start (only used when NOT in edit mode)
+        property bool _didDrag: false
+
+        onPressed: function(e) {
+            _didDrag = false
             tileMap._dragX   = e.x
             tileMap._dragY   = e.y
             tileMap._dragLat = tileMap.centerLat
@@ -249,19 +312,39 @@ Item {
         }
         onPositionChanged: function(e) {
             if (!pressed) return
-            var sc = tileMap._scale()
+            if (tileMap.editMode) return   // no panning in edit mode
             var dx = e.x - tileMap._dragX
             var dy = e.y - tileMap._dragY
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) _didDrag = true
+            var sc = tileMap._scale()
             tileMap.centerLon = tileMap._dragLon - dx * 360 / sc
             var newWy = tileMap._latToWorld(tileMap._dragLat) - dy
             tileMap.centerLat = tileMap._worldYToLat(newWy)
+        }
+        onClicked: function(e) {
+            if (!tileMap.editMode) return
+            var ll = tileMap.screenToLatLon(e.x, e.y)
+            tileMap.addWaypoint(ll.lat, ll.lon)
         }
         onWheel: function(e) {
             if (e.angleDelta.y > 0) tileMap.zoom = Math.min(18, tileMap.zoom + 1)
             else                    tileMap.zoom = Math.max(8,  tileMap.zoom - 1)
         }
 
-        // Propagate clicks to zoom buttons above (don't block them)
         propagateComposedEvents: true
+    }
+
+    // Edit mode indicator label (top-right)
+    Rectangle {
+        visible: tileMap.editMode
+        anchors { top: parent.top; right: parent.right; margins: 8 }
+        height: 24; width: editLabel.implicitWidth + 16; radius: 6
+        color: tileMap.lineColor; z: 25
+        Label {
+            id: editLabel
+            anchors.centerIn: parent
+            text: "Режим рисования · " + tileMap.editWaypoints.length + " точек"
+            font.pixelSize: 10; font.weight: Font.DemiBold; color: "#fff"
+        }
     }
 }

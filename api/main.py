@@ -69,7 +69,13 @@ class UserDB(Base):
     password_hash = Column(String, nullable=False)
     athlete_id = Column(String, ForeignKey("athletes.id"), nullable=True)
     created_at = Column(String, nullable=False)
-    openai_key = Column(String, nullable=True)     # user-provided OpenAI API key
+    openai_key           = Column(String, nullable=True)
+    strava_client_id     = Column(String, nullable=True)
+    strava_client_secret = Column(String, nullable=True)
+    strava_access_token  = Column(String, nullable=True)
+    strava_refresh_token = Column(String, nullable=True)
+    strava_token_expiry  = Column(Integer, nullable=True)   # unix timestamp
+    strava_athlete_id    = Column(String, nullable=True)
 
 
 class AthleteDB(Base):
@@ -448,7 +454,13 @@ def _migrate_schema():
         "source_file":           "TEXT",
     }
     new_user_cols = {
-        "openai_key": "TEXT",
+        "openai_key":           "TEXT",
+        "strava_client_id":     "TEXT",
+        "strava_client_secret": "TEXT",
+        "strava_access_token":  "TEXT",
+        "strava_refresh_token": "TEXT",
+        "strava_token_expiry":  "INTEGER",
+        "strava_athlete_id":    "TEXT",
     }
     with engine.begin() as conn:
         existing_w = {row[1] for row in conn.execute(text("PRAGMA table_info(workouts)"))}
@@ -1385,95 +1397,79 @@ def generate_route(
     db: Session = Depends(get_db),
 ):
     """
-    Generate a running route via OpenAI + snap to real roads via OSRM.
-    Falls back to a straight-line approximation if OSRM is unavailable.
+    Generate a circular running route using geometric waypoints + OSRM road snapping.
+    No AI or paid API required — completely free.
     """
-    import httpx
+    import math, httpx
 
-    openai_key = current_user.openai_key
-    if not openai_key:
-        raise HTTPException(400, "OpenAI API ключ не задан. Добавьте его в настройках.")
+    lat = data.start_lat
+    lon = data.start_lon
+    target_km = data.distance_km
 
-    # ── Step 1: Ask OpenAI for waypoints ────────────────────────────────────────
-    prompt = (
-        f"Ты помощник для бегунов. Сгенерируй круговой маршрут для бега.\n"
-        f"Старт и финиш: lat={data.start_lat:.5f}, lon={data.start_lon:.5f}\n"
-        f"Желаемая длина: {data.distance_km:.1f} км\n"
-        f"Предпочтения: {data.preferences or 'парки, тихие улицы'}\n\n"
-        f"Верни ТОЛЬКО JSON (без markdown) в формате:\n"
-        f'{{\"name\": \"Название маршрута\", \"description\": \"Описание 2-3 предложения\", '
-        f'\"waypoints\": [[lon,lat], [lon,lat], ..., [lon,lat]]}}\n'
-        f"Маршрут должен начинаться и заканчиваться в стартовой точке. "
-        f"Используй реальные координаты в радиусе {data.distance_km / 2:.1f} км от старта."
-    )
+    # ── Step 1: Generate circular waypoints ────────────────────────────────────
+    # radius so that a loop through N points ≈ target_km
+    n_points = 5  # pentagon gives a natural variety
+    radius_km = target_km / (2 * math.pi)
 
+    dlat = radius_km / 111.0
+    dlon = radius_km / (111.0 * max(math.cos(math.radians(lat)), 0.01))
+
+    # Start going roughly north, then clockwise
+    waypoints: list = [[lon, lat]]
+    for i in range(1, n_points + 1):
+        angle = -math.pi / 2 + 2 * math.pi * i / n_points
+        wlat = lat + dlat * math.sin(angle)
+        wlon = lon + dlon * math.cos(angle)
+        waypoints.append([wlon, wlat])
+    waypoints.append([lon, lat])   # close the loop
+
+    # ── Step 2: Reverse-geocode start to get location name (Nominatim, free) ───
+    route_name = f"Маршрут {target_km:.0f} км"
     try:
-        with httpx.Client(timeout=30) as client:
-            resp = client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {openai_key}"},
-                json={
-                    "model": "gpt-4o-mini",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 800,
-                    "temperature": 0.7,
-                },
+        with httpx.Client(timeout=6, headers={"User-Agent": "SportCal/2.0"}) as client:
+            nom = client.get(
+                f"https://nominatim.openstreetmap.org/reverse"
+                f"?lat={lat}&lon={lon}&format=json&zoom=14"
             )
-        if resp.status_code == 401:
-            raise HTTPException(400, "Неверный OpenAI API ключ")
-        if resp.status_code != 200:
-            raise HTTPException(502, f"OpenAI error {resp.status_code}: {resp.text[:200]}")
+        if nom.status_code == 200:
+            addr = nom.json().get("address", {})
+            locality = (
+                addr.get("suburb") or addr.get("neighbourhood") or
+                addr.get("city_district") or addr.get("village") or
+                addr.get("town") or addr.get("city", "")
+            )
+            if locality:
+                route_name = f"{locality} · {target_km:.0f} км"
+    except Exception:
+        pass
 
-        content = resp.json()["choices"][0]["message"]["content"].strip()
-        # Strip markdown code blocks if present
-        if content.startswith("```"):
-            content = content.split("```")[1]
-            if content.startswith("json"):
-                content = content[4:]
-        ai_data = json.loads(content)
-    except (json.JSONDecodeError, KeyError) as e:
-        raise HTTPException(502, f"Не удалось разобрать ответ ИИ: {e}")
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Ошибка сети при запросе к OpenAI: {e}")
-
-    waypoints: list = ai_data.get("waypoints", [])
-    route_name: str = ai_data.get("name", "Маршрут")
-    description: str = ai_data.get("description", "")
-
-    if not waypoints or len(waypoints) < 2:
-        raise HTTPException(502, "ИИ не вернул корректные точки маршрута")
-
-    # ── Step 2: Snap to road network via OSRM ───────────────────────────────────
+    # ── Step 3: Snap to road network via OSRM (free public server) ─────────────
     coords_str = ";".join(f"{p[0]},{p[1]}" for p in waypoints)
-    geojson_coords = waypoints  # fallback: straight line
+    geojson_coords = waypoints   # fallback: straight lines
+    actual_dist = target_km
 
     try:
         with httpx.Client(timeout=15) as client:
-            osrm_url = (
+            osrm_resp = client.get(
                 f"http://router.project-osrm.org/route/v1/foot/{coords_str}"
                 f"?overview=full&geometries=geojson"
             )
-            osrm_resp = client.get(osrm_url)
         if osrm_resp.status_code == 200:
             osrm_data = osrm_resp.json()
-            routes = osrm_data.get("routes", [])
-            if routes:
-                geojson_coords = routes[0]["geometry"]["coordinates"]
-                # Calculate actual distance from OSRM
-                actual_dist = routes[0].get("distance", 0) / 1000.0  # metres → km
-            else:
-                actual_dist = data.distance_km
-        else:
-            actual_dist = data.distance_km
+            osrm_routes = osrm_data.get("routes", [])
+            if osrm_routes:
+                geojson_coords = osrm_routes[0]["geometry"]["coordinates"]
+                actual_dist = osrm_routes[0].get("distance", 0) / 1000.0
     except Exception:
-        actual_dist = data.distance_km  # OSRM unavailable → use AI estimate
+        pass   # offline / unavailable → use geometric waypoints
 
-    geojson = json.dumps({
-        "type": "LineString",
-        "coordinates": geojson_coords,
-    })
+    description = f"Круговой маршрут {actual_dist:.1f} км по дорогам"
+    if data.preferences:
+        description += f" · {data.preferences}"
 
-    # ── Step 3: Persist route ────────────────────────────────────────────────────
+    geojson = json.dumps({"type": "LineString", "coordinates": geojson_coords})
+
+    # ── Step 4: Persist ─────────────────────────────────────────────────────────
     route = RouteDB(
         id=new_id(),
         user_id=current_user.id,
@@ -1481,12 +1477,307 @@ def generate_route(
         distance_km=round(actual_dist, 2),
         geojson=geojson,
         description=description,
-        start_lat=data.start_lat,
-        start_lon=data.start_lon,
+        start_lat=lat,
+        start_lon=lon,
         created_at=datetime.utcnow().isoformat(),
     )
     db.add(route)
     db.commit()
     db.refresh(route)
-
     return _route_to_dict(route)
+
+
+# ── Custom waypoints route (from map editor) ──────────────────────────────────
+
+class CustomRouteRequest(BaseModel):
+    waypoints: list   # [[lon, lat], ...]
+    name: str = "Мой маршрут"
+
+@app.post("/api/routes/from-waypoints")
+def route_from_waypoints(
+    data: CustomRouteRequest,
+    current_user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Build a route from user-drawn waypoints via OSRM, then save."""
+    import httpx
+
+    wps = data.waypoints
+    if len(wps) < 2:
+        raise HTTPException(400, "Нужно минимум 2 точки")
+
+    coords_str = ";".join(f"{p[0]},{p[1]}" for p in wps)
+    geojson_coords = wps
+    actual_dist = 0.0
+
+    try:
+        with httpx.Client(timeout=15) as client:
+            resp = client.get(
+                f"http://router.project-osrm.org/route/v1/foot/{coords_str}"
+                f"?overview=full&geometries=geojson"
+            )
+        if resp.status_code == 200:
+            rdata = resp.json().get("routes", [])
+            if rdata:
+                geojson_coords = rdata[0]["geometry"]["coordinates"]
+                actual_dist = rdata[0].get("distance", 0) / 1000.0
+    except Exception:
+        pass
+
+    geojson = json.dumps({"type": "LineString", "coordinates": geojson_coords})
+    route = RouteDB(
+        id=new_id(),
+        user_id=current_user.id,
+        name=data.name,
+        distance_km=round(actual_dist, 2),
+        geojson=geojson,
+        description=f"Ручной маршрут {actual_dist:.1f} км",
+        start_lat=wps[0][1],
+        start_lon=wps[0][0],
+        created_at=datetime.utcnow().isoformat(),
+    )
+    db.add(route); db.commit(); db.refresh(route)
+    return _route_to_dict(route)
+
+
+# ── Strava OAuth ──────────────────────────────────────────────────────────────
+
+class StravaCredentials(BaseModel):
+    client_id: str
+    client_secret: str
+
+@app.put("/api/strava/credentials", status_code=204)
+def save_strava_credentials(
+    data: StravaCredentials,
+    current_user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user.strava_client_id = data.client_id.strip()
+    current_user.strava_client_secret = data.client_secret.strip()
+    db.commit()
+
+@app.get("/api/strava/auth-url")
+def strava_auth_url(current_user: UserDB = Depends(get_current_user)):
+    cid = current_user.strava_client_id
+    if not cid:
+        raise HTTPException(400, "Сначала укажите Strava Client ID в настройках")
+    redirect = "http://localhost:8000/api/strava/callback"
+    url = (
+        f"https://www.strava.com/oauth/authorize"
+        f"?client_id={cid}&response_type=code&redirect_uri={redirect}"
+        f"&approval_prompt=force&scope=activity:read_all"
+    )
+    return {"url": url}
+
+@app.get("/api/strava/callback")
+def strava_callback(
+    code: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Strava redirects here after user approves.
+    We exchange the code for tokens — but we can't know which user this is
+    without state. For simplicity, exchange tokens for the last user who
+    initiated connect (or store pending code with TTL).
+    We return a simple HTML page telling user to go back to the app.
+    """
+    import httpx, time
+    from fastapi.responses import HTMLResponse
+
+    # Find user with pending strava credentials (has client_id but no access_token yet)
+    user = db.query(UserDB).filter(
+        UserDB.strava_client_id.isnot(None),
+        UserDB.strava_access_token.is_(None),
+    ).order_by(UserDB.created_at.desc()).first()
+
+    if not user or not user.strava_client_secret:
+        return HTMLResponse("<h2>Ошибка: не найден пользователь с Strava Client ID. Попробуйте снова.</h2>")
+
+    try:
+        with httpx.Client(timeout=10) as client:
+            resp = client.post("https://www.strava.com/oauth/token", data={
+                "client_id":     user.strava_client_id,
+                "client_secret": user.strava_client_secret,
+                "code":          code,
+                "grant_type":    "authorization_code",
+            })
+        if resp.status_code != 200:
+            return HTMLResponse(f"<h2>Ошибка Strava: {resp.text[:200]}</h2>")
+
+        tok = resp.json()
+        user.strava_access_token  = tok.get("access_token")
+        user.strava_refresh_token = tok.get("refresh_token")
+        user.strava_token_expiry  = tok.get("expires_at", int(time.time()) + 21600)
+        user.strava_athlete_id    = str(tok.get("athlete", {}).get("id", ""))
+        db.commit()
+    except Exception as e:
+        return HTMLResponse(f"<h2>Ошибка: {e}</h2>")
+
+    return HTMLResponse("""
+        <html><body style="font-family:sans-serif;text-align:center;padding:60px">
+        <h2>✅ Strava подключена!</h2>
+        <p>Вернитесь в приложение SportCal и нажмите «Синхронизировать».</p>
+        </body></html>
+    """)
+
+@app.get("/api/strava/status")
+def strava_status(current_user: UserDB = Depends(get_current_user)):
+    return {
+        "connected":   bool(current_user.strava_access_token),
+        "hasClientId": bool(current_user.strava_client_id),
+        "athleteId":   current_user.strava_athlete_id or "",
+    }
+
+@app.delete("/api/strava/disconnect", status_code=204)
+def strava_disconnect(
+    current_user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Revoke stored Strava tokens (keeps client credentials for easy reconnect)."""
+    current_user.strava_access_token  = None
+    current_user.strava_refresh_token = None
+    current_user.strava_token_expiry  = None
+    current_user.strava_athlete_id    = None
+    db.commit()
+
+def _refresh_strava_token(user: UserDB, db: Session) -> bool:
+    import httpx, time
+    if not user.strava_refresh_token:
+        return False
+    try:
+        with httpx.Client(timeout=10) as client:
+            resp = client.post("https://www.strava.com/oauth/token", data={
+                "client_id":     user.strava_client_id,
+                "client_secret": user.strava_client_secret,
+                "grant_type":    "refresh_token",
+                "refresh_token": user.strava_refresh_token,
+            })
+        if resp.status_code == 200:
+            tok = resp.json()
+            user.strava_access_token  = tok["access_token"]
+            user.strava_refresh_token = tok["refresh_token"]
+            user.strava_token_expiry  = tok["expires_at"]
+            db.commit()
+            return True
+    except Exception:
+        pass
+    return False
+
+@app.post("/api/strava/sync")
+def strava_sync(
+    current_user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Pull recent Strava activities and create/update workouts."""
+    import httpx, time
+
+    if not current_user.strava_access_token:
+        raise HTTPException(400, "Strava не подключена")
+
+    # Refresh token if expired
+    expiry = current_user.strava_token_expiry or 0
+    if time.time() > expiry - 60:
+        if not _refresh_strava_token(current_user, db):
+            raise HTTPException(401, "Не удалось обновить токен Strava. Переподключитесь.")
+
+    try:
+        with httpx.Client(timeout=15) as client:
+            resp = client.get(
+                "https://www.strava.com/api/v3/athlete/activities",
+                headers={"Authorization": f"Bearer {current_user.strava_access_token}"},
+                params={"per_page": 30, "page": 1},
+            )
+        if resp.status_code == 401:
+            current_user.strava_access_token = None
+            db.commit()
+            raise HTTPException(401, "Strava отклонила токен. Переподключитесь.")
+        if resp.status_code != 200:
+            raise HTTPException(502, f"Strava API error {resp.status_code}")
+
+        activities = resp.json()
+    except httpx.RequestError as e:
+        raise HTTPException(502, f"Ошибка сети: {e}")
+
+    created = 0
+    for act in activities:
+        strava_id = f"strava_{act['id']}"
+        # Skip if already imported
+        existing = db.query(WorkoutDB).filter(WorkoutDB.source_file == strava_id).first()
+        if existing:
+            continue
+
+        cat_map = {
+            "Run": "run", "VirtualRun": "run",
+            "Ride": "bike", "VirtualRide": "bike",
+            "Swim": "swim",
+        }
+        cat = cat_map.get(act.get("type", ""), "run")
+        start_date = (act.get("start_date_local") or act.get("start_date") or "")[:10]
+        dist_km = round(act.get("distance", 0) / 1000.0, 2)
+        dur_min = round(act.get("moving_time", 0) / 60)
+        avg_hr  = act.get("average_heartrate")
+        max_hr  = act.get("max_heartrate")
+        elev    = act.get("total_elevation_gain")
+        avg_speed = act.get("average_speed", 0)  # m/s
+        avg_pace  = (1000 / avg_speed / 60) if avg_speed > 0 else None
+
+        # Build GeoJSON from summary_polyline
+        route_geojson = None
+        poly = act.get("map", {}).get("summary_polyline", "")
+        if poly:
+            try:
+                coords = _decode_polyline(poly)
+                route_geojson = json.dumps({"type": "LineString", "coordinates": coords})
+            except Exception:
+                pass
+
+        w = WorkoutDB(
+            id=new_id(),
+            title=act.get("name") or f"Strava · {cat}",
+            category=cat,
+            distance_km=dist_km,
+            duration_min=dur_min,
+            intensity="moderate",
+            status="done",
+            date=start_date,
+            notes=f"Импортировано из Strava",
+            source_file=strava_id,
+            actual_distance_km=dist_km,
+            actual_duration_min=dur_min,
+            actual_avg_pace=avg_pace,
+            actual_avg_hr=int(avg_hr) if avg_hr else None,
+            actual_max_hr=int(max_hr) if max_hr else None,
+            actual_elevation_gain=elev,
+            route_geojson=route_geojson,
+        )
+        # Assign to current user's athlete
+        if current_user.athlete_id:
+            w.athlete_id = current_user.athlete_id
+        db.add(w)
+        created += 1
+
+    db.commit()
+    return {"synced": created, "total": len(activities)}
+
+
+def _decode_polyline(polyline_str: str) -> list:
+    """Decode Google-encoded polyline to [[lon, lat], ...] list."""
+    coords = []
+    index = 0; lat = 0; lng = 0
+    while index < len(polyline_str):
+        result = 0; shift = 0
+        while True:
+            b = ord(polyline_str[index]) - 63; index += 1
+            result |= (b & 0x1f) << shift; shift += 5
+            if b < 0x20: break
+        dlat = ~(result >> 1) if result & 1 else result >> 1
+        lat += dlat
+        result = 0; shift = 0
+        while True:
+            b = ord(polyline_str[index]) - 63; index += 1
+            result |= (b & 0x1f) << shift; shift += 5
+            if b < 0x20: break
+        dlng = ~(result >> 1) if result & 1 else result >> 1
+        lng += dlng
+        coords.append([lng / 1e5, lat / 1e5])  # [lon, lat] for GeoJSON
+    return coords

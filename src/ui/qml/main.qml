@@ -1435,12 +1435,12 @@ ApplicationWindow {
                     textMuted:   root.textMuted
                     accent:      root.accent
                     runColor:    root.runColor
-                    hardColor:   root.hardColor
                     dark:        root.dark
 
-                    routesModel:  workoutStore.routes
-                    isBusy:       workoutStore.busy
-                    hasOpenAiKey: workoutStore.hasOpenAiKey
+                    routesModel:        workoutStore.routes
+                    isBusy:             workoutStore.busy
+                    stravaConnected:    workoutStore.stravaConnected
+                    stravaHasClientId:  workoutStore.stravaHasClientId
 
                     onGenerateRequested: function(lat, lon, distKm, prefs) {
                         workoutStore.generateRoute(lat, lon, distKm, prefs)
@@ -1448,8 +1448,20 @@ ApplicationWindow {
                     onDeleteRouteRequested: function(id) {
                         workoutStore.deleteRoute(id)
                     }
-                    onOpenAiKeyRequested: {
-                        openAiKeyDlg.open()
+                    onBuildFromWaypointsRequested: function(waypoints, name) {
+                        workoutStore.buildRouteFromWaypoints(waypoints, name)
+                    }
+                    onConnectStravaRequested: {
+                        workoutStore.openStravaAuthUrl()
+                    }
+                    onDisconnectStravaRequested: {
+                        workoutStore.disconnectStrava()
+                    }
+                    onSyncStravaRequested: {
+                        workoutStore.syncStrava()
+                    }
+                    onOpenStravaSettingsRequested: {
+                        stravaSettingsDlg.open()
                     }
                 }
             }
@@ -1496,6 +1508,56 @@ ApplicationWindow {
         accent:      root.accent
         onGoalCreated: function(title, targetDate, type, targetValue, targetUnit) {
             workoutStore.createGoal(title, targetDate, type, targetValue, targetUnit)
+        }
+    }
+
+    // ── Strava settings dialog ───────────────────────────────────────────────
+    Dialog {
+        id: stravaSettingsDlg
+        title: "Настройки Strava"
+        anchors.centerIn: Overlay.overlay
+        width: 360
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        property string savedClientId: ""
+        property string savedClientSecret: ""
+
+        onOpened: {
+            stravaClientIdField.text    = ""
+            stravaClientSecretField.text = ""
+        }
+        onAccepted: {
+            var cid = stravaClientIdField.text.trim()
+            var cs  = stravaClientSecretField.text.trim()
+            if (cid && cs)
+                workoutStore.saveStravaCredentials(cid, cs)
+        }
+
+        ColumnLayout {
+            width: parent.width; spacing: 14
+            Label {
+                Layout.fillWidth: true; wrapMode: Text.Wrap
+                text: "Создайте приложение на strava.com/settings/api, скопируйте Client ID и Client Secret."
+                font.pixelSize: 12; color: root.textMuted
+            }
+            Label { text: "Client ID"; font.pixelSize: 11; font.weight: Font.DemiBold; color: root.textPrimary }
+            TextField {
+                id: stravaClientIdField
+                Layout.fillWidth: true; placeholderText: "12345"
+                font.pixelSize: 13
+            }
+            Label { text: "Client Secret"; font.pixelSize: 11; font.weight: Font.DemiBold; color: root.textPrimary }
+            TextField {
+                id: stravaClientSecretField
+                Layout.fillWidth: true; placeholderText: "abc123..."
+                font.pixelSize: 13; echoMode: TextInput.PasswordEchoOnEdit
+            }
+            Label {
+                Layout.fillWidth: true; wrapMode: Text.Wrap
+                text: "После сохранения нажмите «Подключить Strava» — откроется браузер для авторизации."
+                font.pixelSize: 11; color: root.textMuted
+            }
         }
     }
 
