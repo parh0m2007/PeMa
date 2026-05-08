@@ -1226,7 +1226,7 @@ ApplicationWindow {
                                             borderCol: root.border; textPrimary: root.textPrimary
                                             textMuted: root.textMuted; accent: root.accent
                                             runColor: root.runColor; hardColor: root.hardColor; dark: root.dark
-                                            goalsModel: workoutStore.goals
+                                            goalsModel: root.analyticsObj.activeGoals || workoutStore.goals
                                             onDeleteRequested: function(id) { workoutStore.deleteGoal(id) }
                                             onAddRequested: goalCreateDialog.open()
                                         }
