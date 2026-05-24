@@ -107,9 +107,7 @@ cmake --build build
 
 
 ```mermaid
-
 classDiagram
-    %% Стилизация для разделения слоев
     class UserDB {
         +int id
         +string email
@@ -215,8 +213,8 @@ classDiagram
     }
 
     class WorkoutStore {
-        <<C++ / Qt6>>
-        -QList<Workout> cache
+        <<C++ Qt6>>
+        -QList~Workout~ cache
         -NetworkManager net
         +loadWorkouts()
         +syncWithServer()
@@ -284,13 +282,13 @@ classDiagram
     }
 
     %% Отношения БД
-    UserDB "1" -- "1" AthleteDB : extends/profile
+    UserDB "1" -- "1" AthleteDB : extends_profile
     UserDB "1" -- "0..*" CoachAthleteLinkDB : links
     UserDB "1" -- "0..*" WorkoutDB : owns
     UserDB "1" -- "0..*" GoalDB : sets
     UserDB "1" -- "0..*" RouteDB : creates
 
-    %% Отношения Бэкенд -> БД (Использование)
+    %% Отношения Бэкенд -> БД
     AuthRouter ..> UserDB : manages
     WorkoutRouter ..> WorkoutDB : CRUD
     WorkoutRouter ..> StravaRouter : triggers
@@ -302,22 +300,22 @@ classDiagram
 
     %% Отношения Фронтенд <-> Логика
     WorkoutStore ..> AuthRouter : auth
-    WorkoutStore ..> WorkoutRouter : fetch data
-    WorkoutStore ..> AnalyticsRouter : fetch stats
-    WorkoutStore ..> RouteRouter : fetch routes
+    WorkoutStore ..> WorkoutRouter : fetch_data
+    WorkoutStore ..> AnalyticsRouter : fetch_stats
+    WorkoutStore ..> RouteRouter : fetch_routes
     
     %% Отношения QML -> Store
     CalendarView --> WorkoutStore : observes
     WorkoutDetailPanel --> WorkoutStore : selects
-    AnalyticsTab --> WorkoutStore : requests data
+    AnalyticsTab --> WorkoutStore : requests_data
     AiCoachTab --> WorkoutStore : interacts
-    RouteTab --> WorkoutStore : loads maps
-    SettingsPanel --> WorkoutStore : updates config
-    AuthScreen --> WorkoutStore : submits creds
-    BuilderTab --> WorkoutStore : saves plans
+    RouteTab --> WorkoutStore : loads_maps
+    SettingsPanel --> WorkoutStore : updates_config
+    AuthScreen --> WorkoutStore : submits_creds
+    BuilderTab --> WorkoutStore : saves_plans
 
-    %% Группировка по пакетам (визуально)
-    subgraph Database_Layer ["🗄️ Database Models (SQLAlchemy)"]
+    %% Группировка по слоям (без эмодзи для совместимости)
+    subgraph Database_Layer [Database Models SQLAlchemy]
         UserDB
         AthleteDB
         CoachAthleteLinkDB
@@ -326,7 +324,7 @@ classDiagram
         RouteDB
     end
 
-    subgraph Backend_Layer ["🐍 FastAPI Backend"]
+    subgraph Backend_Layer [FastAPI Backend]
         AuthRouter
         WorkoutRouter
         AnalyticsRouter
@@ -335,11 +333,11 @@ classDiagram
         RouteRouter
     end
 
-    subgraph Desktop_Core ["⚙️ C++ Core (Qt6)"]
+    subgraph Desktop_Core [C++ Core Qt6]
         WorkoutStore
     end
 
-    subgraph Frontend_Layer ["🎨 QML Frontend"]
+    subgraph Frontend_Layer [QML Frontend]
         CalendarView
         WorkoutDetailPanel
         AnalyticsTab
