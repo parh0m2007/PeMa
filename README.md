@@ -108,244 +108,243 @@ cmake --build build
 
 ```mermaid
 classDiagram
-    class UserDB {
-        +int id
-        +string email
-        +string password_hash
-        +string name
-        +datetime created_at
-        +get_profile()
-        +update_settings()
-    }
+ class UserDB {
+ +int id
+ +string email
+ +string password_hash
+ +string name
+ +datetime created_at
+ +get_profile()
+ +update_settings()
+ }
 
-    class AthleteDB {
-        +int user_id
-        +float weight
-        +float height
-        +int ftp
-        +string zone_config
-        +calc_zones()
-        +update_metrics()
-    }
+ class AthleteDB {
+ +int user_id
+ +float weight
+ +float height
+ +int ftp
+ +string zone_config
+ +calc_zones()
+ +update_metrics()
+ }
 
-    class CoachAthleteLinkDB {
-        +int coach_id
-        +int athlete_id
-        +string status
-        +datetime linked_at
-        +grant_access()
-        +revoke_access()
-    }
+ class CoachAthleteLinkDB {
+ +int coach_id
+ +int athlete_id
+ +string status
+ +datetime linked_at
+ +grant_access()
+ +revoke_access()
+ }
 
-    class WorkoutDB {
-        +int id
-        +int user_id
-        +datetime start_time
-        +string type
-        +float duration
-        +json data_points
-        +string strava_id
-        +save_activity()
-        +get_details()
-    }
+ class WorkoutDB {
+ +int id
+ +int user_id
+ +datetime start_time
+ +string type
+ +float duration
+ +json data_points
+ +string strava_id
+ +save_activity()
+ +get_details()
+ }
 
-    class GoalDB {
-        +int id
-        +int user_id
-        +string target_type
-        +float target_value
-        +datetime deadline
-        +check_progress()
-        +update_status()
-    }
+ class GoalDB {
+ +int id
+ +int user_id
+ +string target_type
+ +float target_value
+ +datetime deadline
+ +check_progress()
+ +update_status()
+ }
 
-    class RouteDB {
-        +int id
-        +int user_id
-        +string name
-        +geojson path
-        +float distance
-        +export_gpx()
-    }
+ class RouteDB {
+ +int id
+ +int user_id
+ +string name
+ +geojson path
+ +float distance
+ +export_gpx()
+ }
 
-    class AuthRouter {
-        +register()
-        +login()
-        +refresh_token()
-        +logout()
-        +validate_user()
-    }
+ class AuthRouter {
+ +register()
+ +login()
+ +refresh_token()
+ +logout()
+ +validate_user()
+ }
 
-    class WorkoutRouter {
-        +list_workouts()
-        +get_workout()
-        +upload_workout()
-        +delete_workout()
-        +sync_strava()
-    }
+ class WorkoutRouter {
+ +list_workouts()
+ +get_workout()
+ +upload_workout()
+ +delete_workout()
+ +sync_strava()
+ }
 
-    class AnalyticsRouter {
-        +get_stats()
-        +get_form_chart()
-        +compare_goals()
-        +calculate_fitness()
-    }
+ class AnalyticsRouter {
+ +get_stats()
+ +get_form_chart()
+ +compare_goals()
+ +calculate_fitness()
+ }
 
-    class StravaRouter {
-        +oauth_callback()
-        +fetch_activities()
-        +push_activity()
-        +handle_webhook()
-    }
+ class StravaRouter {
+ +oauth_callback()
+ +fetch_activities()
+ +push_activity()
+ +handle_webhook()
+ }
 
-    class AIRouter {
-        +generate_plan()
-        +analyze_performance()
-        +get_recommendation()
-        +chat_with_coach()
-    }
+ class AIRouter {
+ +generate_plan()
+ +analyze_performance()
+ +get_recommendation()
+ +chat_with_coach()
+ }
 
-    class RouteRouter {
-        +create_route()
-        +search_routes()
-        +get_route_map()
-        +export_route()
-    }
+ class RouteRouter {
+ +create_route()
+ +search_routes()
+ +get_route_map()
+ +export_route()
+ }
 
-    class WorkoutStore {
-        <<C++ Qt6>>
-        -QList~Workout~ cache
-        -NetworkManager net
-        +loadWorkouts()
-        +syncWithServer()
-        +selectDate()
-        +notifyUI()
-    }
+ class WorkoutStore {
+ <<C++ Qt6>>
+ -QList~Workout~ cache
+ -NetworkManager net
+ +loadWorkouts()
+ +syncWithServer()
+ +selectDate()
+ +notifyUI()
+ }
 
-    class CalendarView {
-        <<QML>>
-        +model: WorkoutStore
-        +renderMonth()
-        +onDayClicked()
-        +highlightIntensity()
-    }
+ class CalendarView {
+ <<QML>>
+ +model: WorkoutStore
+ +renderMonth()
+ +onDayClicked()
+ +highlightIntensity()
+ }
 
-    class WorkoutDetailPanel {
-        <<QML>>
-        +currentWorkout: object
-        +showMap()
-        +renderCharts()
-        +displayMetrics()
-    }
+ class WorkoutDetailPanel {
+ <<QML>>
+ +currentWorkout: object
+ +showMap()
+ +renderCharts()
+ +displayMetrics()
+ }
 
-    class AnalyticsTab {
-        <<QML>>
-        +fetchStats()
-        +renderGraphs()
-        +showGoalProgress()
-    }
+ class AnalyticsTab {
+ <<QML>>
+ +fetchStats()
+ +renderGraphs()
+ +showGoalProgress()
+ }
 
-    class AiCoachTab {
-        <<QML>>
-        +displayPlan()
-        +sendQuery()
-        +showRecommendations()
-    }
+ class AiCoachTab {
+ <<QML>>
+ +displayPlan()
+ +sendQuery()
+ +showRecommendations()
+ }
 
-    class RouteTab {
-        <<QML>>
-        +mapComponent
-        +drawRoute()
-        +loadSavedRoutes()
-    }
+ class RouteTab {
+ <<QML>>
+ +mapComponent
+ +drawRoute()
+ +loadSavedRoutes()
+ }
 
-    class SettingsPanel {
-        <<QML>>
-        +editProfile()
-        +connectStrava()
-        +appPreferences()
-    }
+ class SettingsPanel {
+ <<QML>>
+ +editProfile()
+ +connectStrava()
+ +appPreferences()
+ }
 
-    class AuthScreen {
-        <<QML>>
-        +loginForm
-        +registerForm
-        +submitCredentials()
-        +handleError()
-    }
+ class AuthScreen {
+ <<QML>>
+ +loginForm
+ +registerForm
+ +submitCredentials()
+ +handleError()
+ }
 
-    class BuilderTab {
-        <<QML>>
-        +intervalEditor
-        +planBuilder
-        +saveTemplate()
-    }
+ class BuilderTab {
+ <<QML>>
+ +intervalEditor
+ +planBuilder
+ +saveTemplate()
+ }
 
-    %% Отношения БД
-    UserDB "1" -- "1" AthleteDB : extends_profile
-    UserDB "1" -- "0..*" CoachAthleteLinkDB : links
-    UserDB "1" -- "0..*" WorkoutDB : owns
-    UserDB "1" -- "0..*" GoalDB : sets
-    UserDB "1" -- "0..*" RouteDB : creates
+ %% Отношения БД
+ UserDB "1" -- "1" AthleteDB : extends_profile
+ UserDB "1" -- "0..*" CoachAthleteLinkDB : links
+ UserDB "1" -- "0..*" WorkoutDB : owns
+ UserDB "1" -- "0..*" GoalDB : sets
+ UserDB "1" -- "0..*" RouteDB : creates
 
-    %% Отношения Бэкенд -> БД
-    AuthRouter ..> UserDB : manages
-    WorkoutRouter ..> WorkoutDB : CRUD
-    WorkoutRouter ..> StravaRouter : triggers
-    AnalyticsRouter ..> WorkoutDB : reads
-    AnalyticsRouter ..> GoalDB : compares
-    AIRouter ..> WorkoutDB : analyzes
-    AIRouter ..> AthleteDB : personalizes
-    RouteRouter ..> RouteDB : manages
+ %% Backend -> DB
+ AuthRouter ..> UserDB : manages
+ WorkoutRouter ..> WorkoutDB : CRUD
+ WorkoutRouter ..> StravaRouter : triggers
+ AnalyticsRouter ..> WorkoutDB : reads
+ AnalyticsRouter ..> GoalDB : compares
+ AIRouter ..> WorkoutDB : analyzes
+ AIRouter ..> AthleteDB : personalizes
+ RouteRouter ..> RouteDB : manages
 
-    %% Отношения Фронтенд <-> Логика
-    WorkoutStore ..> AuthRouter : auth
-    WorkoutStore ..> WorkoutRouter : fetch_data
-    WorkoutStore ..> AnalyticsRouter : fetch_stats
-    WorkoutStore ..> RouteRouter : fetch_routes
-    
-    %% Отношения QML -> Store
-    CalendarView --> WorkoutStore : observes
-    WorkoutDetailPanel --> WorkoutStore : selects
-    AnalyticsTab --> WorkoutStore : requests_data
-    AiCoachTab --> WorkoutStore : interacts
-    RouteTab --> WorkoutStore : loads_maps
-    SettingsPanel --> WorkoutStore : updates_config
-    AuthScreen --> WorkoutStore : submits_creds
-    BuilderTab --> WorkoutStore : saves_plans
+ %% Frontend <-> Logic
+ WorkoutStore ..> AuthRouter : auth
+ WorkoutStore ..> WorkoutRouter : fetch_data
+ WorkoutStore ..> AnalyticsRouter : fetch_stats
+ WorkoutStore ..> RouteRouter : fetch_routes
 
-    %% Группировка по слоям (без эмодзи для совместимости)
-    subgraph Database_Layer [Database Models SQLAlchemy]
-        UserDB
-        AthleteDB
-        CoachAthleteLinkDB
-        WorkoutDB
-        GoalDB
-        RouteDB
-    end
+ %% QML -> Store
+ CalendarView --> WorkoutStore : observes
+ WorkoutDetailPanel --> WorkoutStore : selects
+ AnalyticsTab --> WorkoutStore : requests_data
+ AiCoachTab --> WorkoutStore : interacts
+ RouteTab --> WorkoutStore : loads_maps
+ SettingsPanel --> WorkoutStore : updates_config
+ AuthScreen --> WorkoutStore : submits_creds
+ BuilderTab --> WorkoutStore : saves_plans
 
-    subgraph Backend_Layer [FastAPI Backend]
-        AuthRouter
-        WorkoutRouter
-        AnalyticsRouter
-        StravaRouter
-        AIRouter
-        RouteRouter
-    end
+ %% Группировка
+ namespace "Database Layer (SQLAlchemy Models)" {
+ UserDB
+ AthleteDB
+ CoachAthleteLinkDB
+ WorkoutDB
+ GoalDB
+ RouteDB
+ }
 
-    subgraph Desktop_Core [C++ Core Qt6]
-        WorkoutStore
-    end
+ namespace "Backend Layer (FastAPI)" {
+ AuthRouter
+ WorkoutRouter
+ AnalyticsRouter
+ StravaRouter
+ AIRouter
+ RouteRouter
+ }
 
-    subgraph Frontend_Layer [QML Frontend]
-        CalendarView
-        WorkoutDetailPanel
-        AnalyticsTab
-        AiCoachTab
-        RouteTab
-        SettingsPanel
-        AuthScreen
-        BuilderTab
-    end
+ namespace "Desktop Core (Qt6 C++)" {
+ WorkoutStore
+ }
 
+ namespace "Frontend Layer (QML)" {
+ CalendarView
+ WorkoutDetailPanel
+ AnalyticsTab
+ AiCoachTab
+ RouteTab
+ SettingsPanel
+ AuthScreen
+ BuilderTab
+ }
 ```
